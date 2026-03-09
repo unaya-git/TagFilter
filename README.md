@@ -10,3 +10,7 @@ WD14 Taggerを使ったLoRA学習用タグ編集ツール
 1. exeを起動
 2. 初回起動時にモデルが自動ダウンロードされます（約350MB）
 3. フォルダを開いて自動タグ付けを実行
+
+## ダウンロード
+
+[![Download](https://img.shields.io/github/v/release/unaya-git/TagFilter)](https://github.com/unaya-git/TagFilter/releases/latest)
