@@ -1,115 +1,432 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace TagFilter
 {
+    public enum BodyPartCategory
+    {
+        Face,        // 顔・髪・表情・目
+        Body,        // 体型・肌・体パーツ
+        Outfit,      // 服装・アクセサリー・靴
+        Pose,        // ポーズ・視点・構図
+        Background,  // 背景・場所・環境
+        Style,       // 画風・画質・色調
+        Expression,  // 感情・状況（solo/1girlなどメタ情報）
+        Artist,      // 作者名
+        Copyright,   // 作品名・シリーズ名
+        Character,   // キャラクター名
+        Other,       // 上記以外
+    }
+
+
+
     public class TagClassifier
     {
-        private static readonly Dictionary<BodyPartCategory, string[]> CategoryKeywords
-            = new Dictionary<BodyPartCategory, string[]>
+        /// <summary>CSVカテゴリ番号が判明している場合はそちらを優先</summary>
+        public BodyPartCategory ClassifyWithCsvCategory(string tagName, int csvCategory)
         {
-        {
-            BodyPartCategory.Face, new[]
+            switch (csvCategory)
             {
-                "eyes", "eye", "pupils", "iris", "eyebrows", "eyelashes",
-                "nose", "mouth", "lips", "teeth", "tongue", "ear", "ears",
-                "face", "cheeks", "forehead", "chin", "blush", "tears",
-                "smile", "expression", "looking", "gaze", "closed_eyes",
-                "hair", "hairband", "ahoge", "twintails", "ponytail",
-                "makeup", "eyeshadow", "eyeliner", "lipstick"
-            }
-        },
-        {
-            BodyPartCategory.Body, new[]
-            {
-                "breasts", "chest", "stomach", "navel", "abs",
-                "shoulders", "arms", "hands", "fingers", "legs", "thighs",
-                "feet", "toes", "back", "spine", "waist", "hips",
-                "skin", "body", "neck", "collarbone", "cleavage"
-            }
-        },
-        {
-            BodyPartCategory.Outfit, new[]
-            {
-                "dress", "skirt", "shirt", "jacket", "coat", "uniform",
-                "swimsuit", "bikini", "bra", "panties", "underwear",
-                "pants", "shorts", "socks", "stockings", "gloves", "hat",
-                "ribbon", "bow", "collar", "tie", "scarf", "cape",
-                "clothes", "clothing", "outfit", "costume", "maid"
-            }
-        },
-        {
-            BodyPartCategory.Pose, new[]
-            {
-                "sitting", "standing", "lying", "kneeling", "crouching",
-                "arms_up", "arms_behind", "hand_on_hip", "crossed_arms",
-                "spread_legs", "leaning", "bending", "walking", "running",
-                "pose", "posture", "from_above", "from_below", "from_behind",
-                "portrait", "full_body", "upper_body", "close-up"
-            }
-        },
-        {
-            BodyPartCategory.Background, new[]
-            {
-                "background", "sky", "clouds", "indoors", "outdoors",
-                "forest", "city", "room", "bedroom", "school", "beach",
-                "floor", "wall", "window", "grass", "nature",
-                "simple_background", "white_background", "gradient_background"
-            }
-        },
-        {
-            BodyPartCategory.Style, new[]
-            {
-                "highres", "absurdres", "masterpiece", "best_quality",
-                "realistic", "anime", "illustration", "digital_art",
-                "watercolor", "sketch", "monochrome", "colorful",
-                "detailed", "sharp", "soft_focus", "bokeh"
+                case 1: return BodyPartCategory.Artist;
+                case 3: return BodyPartCategory.Copyright;
+                case 4: return BodyPartCategory.Character;
+                case 5: return BodyPartCategory.Style; // Meta → Style
+                default: return Classify(tagName);     // 0=General → 辞書分類
             }
         }
+
+
+        // ── 完全一致辞書（優先） ──────────────────────────────────────
+        private static readonly Dictionary<string, BodyPartCategory> _exactMap
+            = new Dictionary<string, BodyPartCategory>(StringComparer.OrdinalIgnoreCase)
+        {
+            // ── 顔 ───────────────────────────────────────────────────
+            // 目
+            {"blue_eyes",BodyPartCategory.Face},{"red_eyes",BodyPartCategory.Face},
+            {"green_eyes",BodyPartCategory.Face},{"brown_eyes",BodyPartCategory.Face},
+            {"purple_eyes",BodyPartCategory.Face},{"yellow_eyes",BodyPartCategory.Face},
+            {"grey_eyes",BodyPartCategory.Face},{"black_eyes",BodyPartCategory.Face},
+            {"pink_eyes",BodyPartCategory.Face},{"aqua_eyes",BodyPartCategory.Face},
+            {"heterochromia",BodyPartCategory.Face},{"half-closed_eyes",BodyPartCategory.Face},
+            {"closed_eyes",BodyPartCategory.Face},{"wide_eyes",BodyPartCategory.Face},
+            {"glowing_eyes",BodyPartCategory.Face},{"sparkling_eyes",BodyPartCategory.Face},
+            // 表情
+            {"smile",BodyPartCategory.Face},{"grin",BodyPartCategory.Face},
+            {"laugh",BodyPartCategory.Face},{"open_mouth",BodyPartCategory.Face},
+            {"closed_mouth",BodyPartCategory.Face},{"frown",BodyPartCategory.Face},
+            {"tears",BodyPartCategory.Face},{"crying",BodyPartCategory.Face},
+            {"blush",BodyPartCategory.Face},{"nosebleed",BodyPartCategory.Face},
+            {"sweat",BodyPartCategory.Face},{"tongue",BodyPartCategory.Face},
+            {"tongue_out",BodyPartCategory.Face},{"pout",BodyPartCategory.Face},
+            {"smirk",BodyPartCategory.Face},{"expressionless",BodyPartCategory.Face},
+            {"serious",BodyPartCategory.Face},{"angry",BodyPartCategory.Face},
+            {"surprised",BodyPartCategory.Face},{"embarrassed",BodyPartCategory.Face},
+            {"scared",BodyPartCategory.Face},{"nervous",BodyPartCategory.Face},
+            {"teeth",BodyPartCategory.Face},{"fangs",BodyPartCategory.Face},
+            {"fangs_out",BodyPartCategory.Face},{"parted_lips",BodyPartCategory.Face},
+            {":d",BodyPartCategory.Face},{":p",BodyPartCategory.Face},
+            {":o",BodyPartCategory.Face},{":3",BodyPartCategory.Face},
+            {";)",BodyPartCategory.Face},{":<",BodyPartCategory.Face},
+            // 顔パーツ
+            {"nose",BodyPartCategory.Face},{"lips",BodyPartCategory.Face},
+            {"eyelashes",BodyPartCategory.Face},{"eyebrows",BodyPartCategory.Face},
+            {"thick_eyebrows",BodyPartCategory.Face},{"thin_eyebrows",BodyPartCategory.Face},
+            {"v-shaped_eyebrows",BodyPartCategory.Face},{"freckles",BodyPartCategory.Face},
+            {"mole",BodyPartCategory.Face},{"mole_under_eye",BodyPartCategory.Face},
+            {"mole_under_mouth",BodyPartCategory.Face},{"scar",BodyPartCategory.Face},
+            {"portrait",BodyPartCategory.Face},{"face",BodyPartCategory.Face},
+            // 耳・角
+            {"pointy_ears",BodyPartCategory.Face},{"animal_ears",BodyPartCategory.Face},
+            {"cat_ears",BodyPartCategory.Face},{"dog_ears",BodyPartCategory.Face},
+            {"fox_ears",BodyPartCategory.Face},{"rabbit_ears",BodyPartCategory.Face},
+            {"wolf_ears",BodyPartCategory.Face},{"elf_ears",BodyPartCategory.Face},
+            {"demon_horns",BodyPartCategory.Face},{"horns",BodyPartCategory.Face},
+            {"single_horn",BodyPartCategory.Face},{"tusks",BodyPartCategory.Face},
+            // 髪
+            {"blonde_hair",BodyPartCategory.Face},{"brown_hair",BodyPartCategory.Face},
+            {"black_hair",BodyPartCategory.Face},{"white_hair",BodyPartCategory.Face},
+            {"red_hair",BodyPartCategory.Face},{"pink_hair",BodyPartCategory.Face},
+            {"blue_hair",BodyPartCategory.Face},{"purple_hair",BodyPartCategory.Face},
+            {"green_hair",BodyPartCategory.Face},{"grey_hair",BodyPartCategory.Face},
+            {"silver_hair",BodyPartCategory.Face},{"orange_hair",BodyPartCategory.Face},
+            {"aqua_hair",BodyPartCategory.Face},{"multicolored_hair",BodyPartCategory.Face},
+            {"streaked_hair",BodyPartCategory.Face},{"gradient_hair",BodyPartCategory.Face},
+            {"short_hair",BodyPartCategory.Face},{"medium_hair",BodyPartCategory.Face},
+            {"long_hair",BodyPartCategory.Face},{"very_long_hair",BodyPartCategory.Face},
+            {"absurdly_long_hair",BodyPartCategory.Face},{"hair_over_one_eye",BodyPartCategory.Face},
+            {"hair_over_eyes",BodyPartCategory.Face},{"hair_between_eyes",BodyPartCategory.Face},
+            {"bangs",BodyPartCategory.Face},{"blunt_bangs",BodyPartCategory.Face},
+            {"side_swept_bangs",BodyPartCategory.Face},{"ahoge",BodyPartCategory.Face},
+            {"twintails",BodyPartCategory.Face},{"twin_braids",BodyPartCategory.Face},
+            {"ponytail",BodyPartCategory.Face},{"high_ponytail",BodyPartCategory.Face},
+            {"side_ponytail",BodyPartCategory.Face},{"low_ponytail",BodyPartCategory.Face},
+            {"braid",BodyPartCategory.Face},{"braided_hair",BodyPartCategory.Face},
+            {"bun",BodyPartCategory.Face},{"double_bun",BodyPartCategory.Face},
+            {"hair_bun",BodyPartCategory.Face},{"messy_hair",BodyPartCategory.Face},
+            {"wavy_hair",BodyPartCategory.Face},{"curly_hair",BodyPartCategory.Face},
+            {"straight_hair",BodyPartCategory.Face},{"spiky_hair",BodyPartCategory.Face},
+            {"bob_cut",BodyPartCategory.Face},{"hime_cut",BodyPartCategory.Face},
+            {"hair_down",BodyPartCategory.Face},{"hair_up",BodyPartCategory.Face},
+            {"drill_hair",BodyPartCategory.Face},{"ringlets",BodyPartCategory.Face},
+            {"swept_bangs",BodyPartCategory.Face},{"parted_bangs",BodyPartCategory.Face},
+
+            // ── 体 ───────────────────────────────────────────────────
+            {"large_breasts",BodyPartCategory.Body},{"medium_breasts",BodyPartCategory.Body},
+            {"small_breasts",BodyPartCategory.Body},{"flat_chest",BodyPartCategory.Body},
+            {"huge_breasts",BodyPartCategory.Body},{"gigantic_breasts",BodyPartCategory.Body},
+            {"breasts",BodyPartCategory.Body},{"nipples",BodyPartCategory.Body},
+            {"cleavage",BodyPartCategory.Body},{"covered_nipples",BodyPartCategory.Body},
+            {"navel",BodyPartCategory.Body},{"covered_navel",BodyPartCategory.Body},
+            {"stomach",BodyPartCategory.Body},{"abs",BodyPartCategory.Body},
+            {"muscular",BodyPartCategory.Body},{"slim",BodyPartCategory.Body},
+            {"plump",BodyPartCategory.Body},{"thick_thighs",BodyPartCategory.Body},
+            {"thighs",BodyPartCategory.Body},{"thigh_gap",BodyPartCategory.Body},
+            {"wide_hips",BodyPartCategory.Body},{"hips",BodyPartCategory.Body},
+            {"buttocks",BodyPartCategory.Body},{"ass",BodyPartCategory.Body},
+            {"legs",BodyPartCategory.Body},{"long_legs",BodyPartCategory.Body},
+            {"short_legs",BodyPartCategory.Body},{"feet",BodyPartCategory.Body},
+            {"barefoot",BodyPartCategory.Body},{"toes",BodyPartCategory.Body},
+            {"arms",BodyPartCategory.Body},{"arm_up",BodyPartCategory.Body},
+            {"arms_up",BodyPartCategory.Body},{"hand",BodyPartCategory.Body},
+            {"hands",BodyPartCategory.Body},{"fingers",BodyPartCategory.Body},
+            {"tail",BodyPartCategory.Body},{"animal_tail",BodyPartCategory.Body},
+            {"cat_tail",BodyPartCategory.Body},{"fox_tail",BodyPartCategory.Body},
+            {"wolf_tail",BodyPartCategory.Body},{"wings",BodyPartCategory.Body},
+            {"angel_wings",BodyPartCategory.Body},{"demon_wings",BodyPartCategory.Body},
+            // 肌
+            {"colored_skin",BodyPartCategory.Body},{"dark_skin",BodyPartCategory.Body},
+            {"pale_skin",BodyPartCategory.Body},{"tan",BodyPartCategory.Body},
+            {"tanline",BodyPartCategory.Body},{"tanned",BodyPartCategory.Body},
+            {"orange_skin",BodyPartCategory.Body},{"blue_skin",BodyPartCategory.Body},
+            {"green_skin",BodyPartCategory.Body},{"red_skin",BodyPartCategory.Body},
+            {"white_skin",BodyPartCategory.Body},{"grey_skin",BodyPartCategory.Body},
+            {"dark-skinned_female",BodyPartCategory.Body},
+            {"dark-skinned_male",BodyPartCategory.Body},
+            // 体型
+            {"1girl",BodyPartCategory.Body},{"1boy",BodyPartCategory.Body},
+            {"male_focus",BodyPartCategory.Body},{"female_focus",BodyPartCategory.Body},
+            {"solo",BodyPartCategory.Body},{"aged_down",BodyPartCategory.Body},
+            {"aged_up",BodyPartCategory.Body},{"loli",BodyPartCategory.Body},
+            {"shota",BodyPartCategory.Body},{"mature_female",BodyPartCategory.Body},
+
+            // ── 服装 ─────────────────────────────────────────────────
+            // トップス
+            {"shirt",BodyPartCategory.Outfit},{"t-shirt",BodyPartCategory.Outfit},
+            {"white_shirt",BodyPartCategory.Outfit},{"black_shirt",BodyPartCategory.Outfit},
+            {"collared_shirt",BodyPartCategory.Outfit},{"dress_shirt",BodyPartCategory.Outfit},
+            {"off-shoulder_shirt",BodyPartCategory.Outfit},{"crop_top",BodyPartCategory.Outfit},
+            {"blouse",BodyPartCategory.Outfit},{"sweater",BodyPartCategory.Outfit},
+            {"hoodie",BodyPartCategory.Outfit},{"jacket",BodyPartCategory.Outfit},
+            {"open_jacket",BodyPartCategory.Outfit},{"black_jacket",BodyPartCategory.Outfit},
+            {"white_jacket",BodyPartCategory.Outfit},{"military_jacket",BodyPartCategory.Outfit},
+            {"suit",BodyPartCategory.Outfit},{"formal",BodyPartCategory.Outfit},
+            {"coat",BodyPartCategory.Outfit},{"cape",BodyPartCategory.Outfit},
+            {"cloak",BodyPartCategory.Outfit},{"vest",BodyPartCategory.Outfit},
+            {"cardigan",BodyPartCategory.Outfit},{"turtleneck",BodyPartCategory.Outfit},
+            // ボトムス
+            {"skirt",BodyPartCategory.Outfit},{"miniskirt",BodyPartCategory.Outfit},
+            {"pleated_skirt",BodyPartCategory.Outfit},{"pencil_skirt",BodyPartCategory.Outfit},
+            {"purple_skirt",BodyPartCategory.Outfit},{"black_skirt",BodyPartCategory.Outfit},
+            {"white_skirt",BodyPartCategory.Outfit},{"short_skirt",BodyPartCategory.Outfit},
+            {"pants",BodyPartCategory.Outfit},{"jeans",BodyPartCategory.Outfit},
+            {"shorts",BodyPartCategory.Outfit},{"hotpants",BodyPartCategory.Outfit},
+            {"trousers",BodyPartCategory.Outfit},{"leggings",BodyPartCategory.Outfit},
+            // ワンピース・制服
+            {"dress",BodyPartCategory.Outfit},{"white_dress",BodyPartCategory.Outfit},
+            {"black_dress",BodyPartCategory.Outfit},{"red_dress",BodyPartCategory.Outfit},
+            {"sundress",BodyPartCategory.Outfit},{"wedding_dress",BodyPartCategory.Outfit},
+            {"maid",BodyPartCategory.Outfit},{"maid_outfit",BodyPartCategory.Outfit},
+            {"maid_uniform",BodyPartCategory.Outfit},{"uniform",BodyPartCategory.Outfit},
+            {"school_uniform",BodyPartCategory.Outfit},{"sailor_uniform",BodyPartCategory.Outfit},
+            {"serafuku",BodyPartCategory.Outfit},{"military_uniform",BodyPartCategory.Outfit},
+            {"police_uniform",BodyPartCategory.Outfit},
+            // 下着・水着
+            {"bikini",BodyPartCategory.Outfit},{"swimsuit",BodyPartCategory.Outfit},
+            {"one-piece_swimsuit",BodyPartCategory.Outfit},
+            {"two-piece_swimsuit",BodyPartCategory.Outfit},
+            {"underwear",BodyPartCategory.Outfit},{"bra",BodyPartCategory.Outfit},
+            {"panties",BodyPartCategory.Outfit},{"lingerie",BodyPartCategory.Outfit},
+            {"thong",BodyPartCategory.Outfit},{"panties_under_pantyhose",BodyPartCategory.Outfit},
+            // 和服
+            {"kimono",BodyPartCategory.Outfit},{"yukata",BodyPartCategory.Outfit},
+            {"hakama",BodyPartCategory.Outfit},{"fundoshi",BodyPartCategory.Outfit},
+            // 特殊衣装
+            {"armor",BodyPartCategory.Outfit},{"bodysuit",BodyPartCategory.Outfit},
+            {"leotard",BodyPartCategory.Outfit},{"jumpsuit",BodyPartCategory.Outfit},
+            {"catsuit",BodyPartCategory.Outfit},{"latex",BodyPartCategory.Outfit},
+            {"nun",BodyPartCategory.Outfit},{"habit",BodyPartCategory.Outfit},
+            {"apron",BodyPartCategory.Outfit},{"naked_apron",BodyPartCategory.Outfit},
+            {"robe",BodyPartCategory.Outfit},{"white_robe",BodyPartCategory.Outfit},
+            {"blue_robe",BodyPartCategory.Outfit},{"hospital_gown",BodyPartCategory.Outfit},
+            {"lab_coat",BodyPartCategory.Outfit},{"bathrobe",BodyPartCategory.Outfit},
+            {"towel",BodyPartCategory.Outfit},{"naked_towel",BodyPartCategory.Outfit},
+            {"nude",BodyPartCategory.Outfit},{"topless",BodyPartCategory.Outfit},
+            {"bottomless",BodyPartCategory.Outfit},{"naked",BodyPartCategory.Outfit},
+            {"completely_nude",BodyPartCategory.Outfit},
+            {"open_clothes",BodyPartCategory.Outfit},{"open_shirt",BodyPartCategory.Outfit},
+            // ソックス・靴下
+            {"socks",BodyPartCategory.Outfit},{"white_socks",BodyPartCategory.Outfit},
+            {"black_socks",BodyPartCategory.Outfit},{"ankle_socks",BodyPartCategory.Outfit},
+            {"kneehighs",BodyPartCategory.Outfit},{"thighhighs",BodyPartCategory.Outfit},
+            {"black_thighhighs",BodyPartCategory.Outfit},
+            {"white_thighhighs",BodyPartCategory.Outfit},
+            {"striped_thighhighs",BodyPartCategory.Outfit},
+            {"pantyhose",BodyPartCategory.Outfit},{"stockings",BodyPartCategory.Outfit},
+            // 靴
+            {"shoes",BodyPartCategory.Outfit},{"boots",BodyPartCategory.Outfit},
+            {"heels",BodyPartCategory.Outfit},{"high_heels",BodyPartCategory.Outfit},
+            {"sneakers",BodyPartCategory.Outfit},{"sandals",BodyPartCategory.Outfit},
+            {"loafers",BodyPartCategory.Outfit},{"black_footwear",BodyPartCategory.Outfit},
+            {"white_footwear",BodyPartCategory.Outfit},
+            {"toeless_legwear",BodyPartCategory.Outfit},
+            // 帽子・頭部
+            {"hat",BodyPartCategory.Outfit},{"cap",BodyPartCategory.Outfit},
+            {"witch_hat",BodyPartCategory.Outfit},{"top_hat",BodyPartCategory.Outfit},
+            {"baseball_cap",BodyPartCategory.Outfit},{"beret",BodyPartCategory.Outfit},
+            {"bow",BodyPartCategory.Outfit},{"hair_bow",BodyPartCategory.Outfit},
+            {"hair_ribbon",BodyPartCategory.Outfit},{"hair_ornament",BodyPartCategory.Outfit},
+            {"hair_flower",BodyPartCategory.Outfit},{"hairband",BodyPartCategory.Outfit},
+            {"headband",BodyPartCategory.Outfit},{"tiara",BodyPartCategory.Outfit},
+            {"crown",BodyPartCategory.Outfit},{"veil",BodyPartCategory.Outfit},
+            {"hood",BodyPartCategory.Outfit},{"hood_up",BodyPartCategory.Outfit},
+            // アクセサリー
+            {"necklace",BodyPartCategory.Outfit},{"earrings",BodyPartCategory.Outfit},
+            {"bracelet",BodyPartCategory.Outfit},{"ring",BodyPartCategory.Outfit},
+            {"anklet",BodyPartCategory.Outfit},{"choker",BodyPartCategory.Outfit},
+            {"collar",BodyPartCategory.Outfit},{"jewelry",BodyPartCategory.Outfit},
+            {"glasses",BodyPartCategory.Outfit},{"sunglasses",BodyPartCategory.Outfit},
+            {"mask",BodyPartCategory.Outfit},{"mouth_mask",BodyPartCategory.Outfit},
+            {"ninja_mask",BodyPartCategory.Outfit},{"gas_mask",BodyPartCategory.Outfit},
+            {"gloves",BodyPartCategory.Outfit},{"black_gloves",BodyPartCategory.Outfit},
+            {"white_gloves",BodyPartCategory.Outfit},{"elbow_gloves",BodyPartCategory.Outfit},
+            {"blue_gloves",BodyPartCategory.Outfit},{"fingerless_gloves",BodyPartCategory.Outfit},
+            {"ribbon",BodyPartCategory.Outfit},{"tie",BodyPartCategory.Outfit},
+            {"necktie",BodyPartCategory.Outfit},{"bowtie",BodyPartCategory.Outfit},
+            {"scarf",BodyPartCategory.Outfit},{"belt",BodyPartCategory.Outfit},
+            {"bag",BodyPartCategory.Outfit},{"backpack",BodyPartCategory.Outfit},
+            {"purse",BodyPartCategory.Outfit},{"umbrella",BodyPartCategory.Outfit},
+            {"fan",BodyPartCategory.Outfit},{"broom",BodyPartCategory.Outfit},
+            {"dressing",BodyPartCategory.Outfit},
+            // スリーブ
+            {"long_sleeves",BodyPartCategory.Outfit},{"short_sleeves",BodyPartCategory.Outfit},
+            {"sleeveless",BodyPartCategory.Outfit},{"puffy_sleeves",BodyPartCategory.Outfit},
+            {"puffy_short_sleeves",BodyPartCategory.Outfit},
+            {"sleeves_past_wrists",BodyPartCategory.Outfit},
+            {"detached_sleeves",BodyPartCategory.Outfit},
+            // 柄
+            {"pinstripe_pattern",BodyPartCategory.Outfit},
+            {"pinstripe_suit",BodyPartCategory.Outfit},
+            {"striped",BodyPartCategory.Outfit},{"plaid",BodyPartCategory.Outfit},
+            {"polka_dot",BodyPartCategory.Outfit},{"checkered",BodyPartCategory.Outfit},
+            {"animal_print",BodyPartCategory.Outfit},{"tiger_print",BodyPartCategory.Outfit},
+            {"leopard_print",BodyPartCategory.Outfit},
+            // カバー
+            {"covered_mouth",BodyPartCategory.Outfit},
+            {"impossible_clothes",BodyPartCategory.Outfit},
+            {"oversized_clothes",BodyPartCategory.Outfit},
+
+            // ── ポーズ ────────────────────────────────────────────────
+            {"standing",BodyPartCategory.Pose},{"sitting",BodyPartCategory.Pose},
+            {"lying",BodyPartCategory.Pose},{"kneeling",BodyPartCategory.Pose},
+            {"crouching",BodyPartCategory.Pose},{"squatting",BodyPartCategory.Pose},
+            {"jumping",BodyPartCategory.Pose},{"running",BodyPartCategory.Pose},
+            {"walking",BodyPartCategory.Pose},{"floating",BodyPartCategory.Pose},
+            {"on_back",BodyPartCategory.Pose},{"on_stomach",BodyPartCategory.Pose},
+            {"on_side",BodyPartCategory.Pose},{"on_floor",BodyPartCategory.Pose},
+            {"on_bed",BodyPartCategory.Pose},{"on_couch",BodyPartCategory.Pose},
+            {"sleeping",BodyPartCategory.Pose},{"spread_arms",BodyPartCategory.Pose},
+            {"outstretched_arms",BodyPartCategory.Pose},
+            {"outstretched_hand",BodyPartCategory.Pose},
+            {"hand_on_hip",BodyPartCategory.Pose},{"hands_on_hips",BodyPartCategory.Pose},
+            {"hand_on_own_face",BodyPartCategory.Pose},
+            {"hand_on_own_chest",BodyPartCategory.Pose},
+            {"hand_on_own_chin",BodyPartCategory.Pose},
+            {"hands_clasped",BodyPartCategory.Pose},{"prayer",BodyPartCategory.Pose},
+            {"v",BodyPartCategory.Pose},{"peace_sign",BodyPartCategory.Pose},
+            {"thumbs_up",BodyPartCategory.Pose},{"pointing",BodyPartCategory.Pose},
+            {"waving",BodyPartCategory.Pose},{"crossed_arms",BodyPartCategory.Pose},
+            {"arms_behind_back",BodyPartCategory.Pose},
+            {"arms_behind_head",BodyPartCategory.Pose},
+            {"leg_up",BodyPartCategory.Pose},{"legs_up",BodyPartCategory.Pose},
+            {"kicking",BodyPartCategory.Pose},{"fighting_stance",BodyPartCategory.Pose},
+            {"hugging",BodyPartCategory.Pose},{"carrying",BodyPartCategory.Pose},
+            {"holding",BodyPartCategory.Pose},{"holding_weapon",BodyPartCategory.Pose},
+            {"holding_sword",BodyPartCategory.Pose},{"holding_gun",BodyPartCategory.Pose},
+            {"holding_shield",BodyPartCategory.Pose},{"holding_staff",BodyPartCategory.Pose},
+            {"looking_at_viewer",BodyPartCategory.Pose},
+            {"looking_away",BodyPartCategory.Pose},
+            {"looking_back",BodyPartCategory.Pose},
+            {"looking_to_the_side",BodyPartCategory.Pose},
+            {"looking_up",BodyPartCategory.Pose},{"looking_down",BodyPartCategory.Pose},
+            {"straight-on",BodyPartCategory.Pose},{"from_above",BodyPartCategory.Pose},
+            {"from_below",BodyPartCategory.Pose},{"from_behind",BodyPartCategory.Pose},
+            {"from_side",BodyPartCategory.Pose},{"profile",BodyPartCategory.Pose},
+            {"upper_body",BodyPartCategory.Pose},{"full_body",BodyPartCategory.Pose},
+            {"cowboy_shot",BodyPartCategory.Pose},{"close-up",BodyPartCategory.Pose},
+            {"spread_legs",BodyPartCategory.Pose},{"crossed_legs",BodyPartCategory.Pose},
+            {"single_thighhigh",BodyPartCategory.Pose},
+
+            // ── 背景 ─────────────────────────────────────────────────
+            {"white_background",BodyPartCategory.Background},
+            {"simple_background",BodyPartCategory.Background},
+            {"black_background",BodyPartCategory.Background},
+            {"grey_background",BodyPartCategory.Background},
+            {"brown_background",BodyPartCategory.Background},
+            {"blue_background",BodyPartCategory.Background},
+            {"pink_background",BodyPartCategory.Background},
+            {"gradient_background",BodyPartCategory.Background},
+            {"outdoor",BodyPartCategory.Background},{"indoors",BodyPartCategory.Background},
+            {"sky",BodyPartCategory.Background},{"ocean",BodyPartCategory.Background},
+            {"beach",BodyPartCategory.Background},{"forest",BodyPartCategory.Background},
+            {"mountain",BodyPartCategory.Background},{"city",BodyPartCategory.Background},
+            {"cityscape",BodyPartCategory.Background},{"street",BodyPartCategory.Background},
+            {"room",BodyPartCategory.Background},{"bedroom",BodyPartCategory.Background},
+            {"bathroom",BodyPartCategory.Background},{"kitchen",BodyPartCategory.Background},
+            {"classroom",BodyPartCategory.Background},{"office",BodyPartCategory.Background},
+            {"hospital",BodyPartCategory.Background},{"school",BodyPartCategory.Background},
+            {"library",BodyPartCategory.Background},{"park",BodyPartCategory.Background},
+            {"night",BodyPartCategory.Background},{"day",BodyPartCategory.Background},
+            {"sunset",BodyPartCategory.Background},{"sunrise",BodyPartCategory.Background},
+            {"rain",BodyPartCategory.Background},{"snow",BodyPartCategory.Background},
+            {"cherry_blossoms",BodyPartCategory.Background},
+            {"grass",BodyPartCategory.Background},{"tree",BodyPartCategory.Background},
+            {"couch",BodyPartCategory.Background},{"bed",BodyPartCategory.Background},
+            {"chair",BodyPartCategory.Background},{"table",BodyPartCategory.Background},
+            {"window",BodyPartCategory.Background},{"door",BodyPartCategory.Background},
+            {"stairs",BodyPartCategory.Background},{"floor",BodyPartCategory.Background},
+            {"tile_wall",BodyPartCategory.Background},{"tiles",BodyPartCategory.Background},
+            {"shower_(place)",BodyPartCategory.Background},
+
+            // ── スタイル ──────────────────────────────────────────────
+            {"realistic",BodyPartCategory.Style},{"photorealistic",BodyPartCategory.Style},
+            {"anime",BodyPartCategory.Style},{"manga",BodyPartCategory.Style},
+            {"sketch",BodyPartCategory.Style},{"watercolor",BodyPartCategory.Style},
+            {"oil_painting",BodyPartCategory.Style},{"digital_art",BodyPartCategory.Style},
+            {"pixel_art",BodyPartCategory.Style},{"3d",BodyPartCategory.Style},
+            {"cel_shading",BodyPartCategory.Style},{"lineart",BodyPartCategory.Style},
+            {"monochrome",BodyPartCategory.Style},{"greyscale",BodyPartCategory.Style},
+            {"sepia",BodyPartCategory.Style},{"high_contrast",BodyPartCategory.Style},
+            {"dark_theme",BodyPartCategory.Style},{"pastel_colors",BodyPartCategory.Style},
+            {"vibrant",BodyPartCategory.Style},{"soft_focus",BodyPartCategory.Style},
+            {"blurry",BodyPartCategory.Style},{"blurry_background",BodyPartCategory.Style},
+            {"depth_of_field",BodyPartCategory.Style},{"lens_flare",BodyPartCategory.Style},
+            {"bokeh",BodyPartCategory.Style},{"film_grain",BodyPartCategory.Style},
+            {"vignette",BodyPartCategory.Style},{"asian",BodyPartCategory.Style},
+            {"dark",BodyPartCategory.Style},{"blue_theme",BodyPartCategory.Style},
+            {"red_theme",BodyPartCategory.Style},{"aura",BodyPartCategory.Style},
+        };
+
+        // ── 末尾一致・部分一致ルール（完全一致でヒットしない場合の補完） ──
+        private static readonly (string Keyword, BodyPartCategory Category, bool EndsWith)[] _rules
+            = new[]
+        {
+            // 髪関連サフィックス
+            ("_hair",   BodyPartCategory.Face,    true),
+            ("_eyes",   BodyPartCategory.Face,    true),
+            ("_ears",   BodyPartCategory.Face,    true),
+            ("hair_",   BodyPartCategory.Face,    false),
+            ("eye_",    BodyPartCategory.Face,    false),
+            // 服装関連サフィックス
+            ("_dress",  BodyPartCategory.Outfit,  true),
+            ("_shirt",  BodyPartCategory.Outfit,  true),
+            ("_skirt",  BodyPartCategory.Outfit,  true),
+            ("_jacket", BodyPartCategory.Outfit,  true),
+            ("_coat",   BodyPartCategory.Outfit,  true),
+            ("_suit",   BodyPartCategory.Outfit,  true),
+            ("_uniform",BodyPartCategory.Outfit,  true),
+            ("_gloves", BodyPartCategory.Outfit,  true),
+            ("_boots",  BodyPartCategory.Outfit,  true),
+            ("_shoes",  BodyPartCategory.Outfit,  true),
+            ("_socks",  BodyPartCategory.Outfit,  true),
+            ("_bow",    BodyPartCategory.Outfit,  true),
+            ("_ribbon", BodyPartCategory.Outfit,  true),
+            ("_collar", BodyPartCategory.Outfit,  true),
+            ("_hat",    BodyPartCategory.Outfit,  true),
+            ("_cap",    BodyPartCategory.Outfit,  true),
+            ("_armor",  BodyPartCategory.Outfit,  true),
+            ("thighhigh",BodyPartCategory.Outfit, false),
+            ("kneehigh", BodyPartCategory.Outfit, false),
+            ("pantyhose",BodyPartCategory.Outfit, false),
+            ("swimwear", BodyPartCategory.Outfit, false),
+            ("swimsuit", BodyPartCategory.Outfit, false),
+            ("footwear", BodyPartCategory.Outfit, false),
+            ("legwear",  BodyPartCategory.Outfit, false),
+            ("sleeves",  BodyPartCategory.Outfit, false),
+            // ポーズ関連
+            ("holding_", BodyPartCategory.Pose,   false),
+            ("looking_", BodyPartCategory.Pose,   false),
+            ("from_",    BodyPartCategory.Pose,   false),
+            ("_stance",  BodyPartCategory.Pose,   true),
+            ("_pose",    BodyPartCategory.Pose,   true),
+            // 背景関連
+            ("_background",BodyPartCategory.Background, true),
+            ("_room",    BodyPartCategory.Background,   true),
+            ("_floor",   BodyPartCategory.Background,   true),
+            ("_wall",    BodyPartCategory.Background,   true),
+            ("outdoor",  BodyPartCategory.Background,   false),
+            ("indoor",   BodyPartCategory.Background,   false),
         };
 
         public BodyPartCategory Classify(string tagName)
         {
-            var normalized = tagName.ToLower().Replace(" ", "_");
-            foreach (var pair in CategoryKeywords)
+            if (string.IsNullOrWhiteSpace(tagName))
+                return BodyPartCategory.Other;
+
+            var lower = tagName.ToLowerInvariant();
+
+            // 1. 完全一致
+            if (_exactMap.TryGetValue(lower, out var cat))
+                return cat;
+
+            // 2. サフィックス・プレフィックス・部分一致
+            foreach (var (kw, c, endsWith) in _rules)
             {
-                var category = pair.Key;
-                var keywords = pair.Value;
-                if (keywords.Any(kw =>
-                    normalized == kw ||
-                    normalized.Contains("_" + kw) ||
-                    normalized.Contains(kw + "_") ||
-                    normalized.StartsWith(kw) ||
-                    normalized.EndsWith(kw)))
-                {
-                    return category;
-                }
+                if (endsWith && lower.EndsWith(kw, StringComparison.Ordinal)) return c;
+                if (!endsWith && lower.Contains(kw)) return c;
             }
+
             return BodyPartCategory.Other;
         }
-
-        public List<string> FilterForFaceLora(IEnumerable<string> tags)
-        {
-            return tags.Where(t => Classify(t) == BodyPartCategory.Face).ToList();
-        }
-
-        public List<string> FilterByCategories(
-            IEnumerable<string> tags,
-            IEnumerable<BodyPartCategory> keepCategories)
-        {
-            var keepSet = new HashSet<BodyPartCategory>(keepCategories);
-            return tags.Where(t => keepSet.Contains(Classify(t))).ToList();
-        }
-    }
-
-    public enum BodyPartCategory
-    {
-        Face,
-        Body,
-        Outfit,
-        Pose,
-        Background,
-        Style,
-        Other
     }
 }

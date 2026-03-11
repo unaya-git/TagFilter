@@ -12,17 +12,92 @@ using System.Threading.Tasks;
 
 namespace TagFilter
 {
+    // ── モデルプリセット ────────────────────────────────────────────
+    public class WD14ModelPreset
+    {
+        public string Name { get; }  // 表示名
+        public string OnnxFile { get; }  // ローカル保存ファイル名
+        public string CsvFile { get; }  // ローカル保存CSVファイル名
+        public string ModelUrl { get; }
+        public string CsvUrl { get; }
+        public string Description { get; }
+
+        public WD14ModelPreset(string name, string onnxFile, string csvFile,
+                               string modelUrl, string csvUrl, string description)
+        {
+            Name = name;
+            OnnxFile = onnxFile;
+            CsvFile = csvFile;
+            ModelUrl = modelUrl;
+            CsvUrl = csvUrl;
+            Description = description;
+        }
+
+        public string OnnxPath =>
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, OnnxFile);
+        public string CsvPath =>
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, CsvFile);
+
+
+        public static readonly WD14ModelPreset[] All = new[]
+{
+    new WD14ModelPreset(
+        "WD ViT v2（標準・軽量）",
+        "wd-vit-v2.onnx",
+        "wd-vit-v2.csv",
+        "https://huggingface.co/SmilingWolf/wd-v1-4-vit-tagger-v2/resolve/main/model.onnx",
+        "https://huggingface.co/SmilingWolf/wd-v1-4-vit-tagger-v2/resolve/main/selected_tags.csv",
+        "汎用。アニメ向け標準モデル（約365MB）"),
+
+    new WD14ModelPreset(
+        "WD SwinV2 v2（高精度）",
+        "wd-swinv2-v2.onnx",
+        "wd-swinv2-v2.csv",
+        "https://huggingface.co/SmilingWolf/wd-v1-4-swinv2-tagger-v2/resolve/main/model.onnx",
+        "https://huggingface.co/SmilingWolf/wd-v1-4-swinv2-tagger-v2/resolve/main/selected_tags.csv",
+        "v2高精度版（約365MB）"),
+
+    new WD14ModelPreset(
+        "WD ViT v3（実写向け改善）",
+        "wd-vit-v3.onnx",
+        "wd-vit-v3.csv",
+        "https://huggingface.co/SmilingWolf/wd-vit-tagger-v3/resolve/main/model.onnx",
+        "https://huggingface.co/SmilingWolf/wd-vit-tagger-v3/resolve/main/selected_tags.csv",
+        "v3。実写にも比較的対応（約365MB）"),
+
+    new WD14ModelPreset(
+        "WD ViT Large v3（高精度）",
+        "wd-vit-large-v3.onnx",
+        "wd-vit-large-v3.csv",
+        "https://huggingface.co/SmilingWolf/wd-vit-large-tagger-v3/resolve/main/model.onnx",
+        "https://huggingface.co/SmilingWolf/wd-vit-large-tagger-v3/resolve/main/selected_tags.csv",
+        "v3大型モデル。高精度だが低速（約1.2GB）"),
+
+    new WD14ModelPreset(
+        "WD Eva02 Large v3（最高精度）",
+        "wd-eva02-large-v3.onnx",
+        "wd-eva02-large-v3.csv",
+        "https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/model.onnx",
+        "https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/selected_tags.csv",
+        "v3最大モデル。最高精度・最低速（約2.5GB）"),
+        };
+
+    }
+
     public class WD14TaggerService : IDisposable
     {
         private readonly InferenceSession _session;
-        private readonly List<TagEntry> _tags;
+        private readonly List<TagInfo> _tags;
         private const int IMAGE_SIZE = 448;
         private const float DEFAULT_THRESHOLD = 0.35f;
         private string _inputName;
 
         // ── Hugging Face ダウンロードURL ───────────────────────────────
-        private const string MODEL_URL = "https://huggingface.co/SmilingWolf/wd-v1-4-vit-tagger-v2/resolve/main/model.onnx";
-        private const string CSV_URL = "https://huggingface.co/SmilingWolf/wd-v1-4-vit-tagger-v2/resolve/main/selected_tags.csv";
+        // 後方互換用（デフォルトモデルのURL）
+        private const string MODEL_URL =
+            "https://huggingface.co/SmilingWolf/wd-v1-4-vit-tagger-v2/resolve/main/model.onnx";
+        private const string CSV_URL =
+            "https://huggingface.co/SmilingWolf/wd-v1-4-vit-tagger-v2/resolve/main/selected_tags.csv";
 
         // ── DirectML 使用可否チェック ──────────────────────────────────
         public static bool IsDirectMLAvailable()
@@ -41,13 +116,29 @@ namespace TagFilter
         }
 
         // ── モデルファイルのダウンロード ───────────────────────────────
+
+        /// <summary>プリセット指定でダウンロード</summary>
+        public static async Task EnsureModelFilesAsync(
+            WD14ModelPreset preset,
+            IProgress<(double Ratio, string Message)> progress = null,
+            CancellationToken ct = default)
+        {
+            await EnsureModelFilesAsync(
+                preset.OnnxPath, preset.CsvPath,
+                preset.ModelUrl, preset.CsvUrl,
+                progress, ct);
+        }
+
         /// <summary>
         /// modelPath / csvPath が存在しない場合、Hugging Face から自動ダウンロードする。
         /// progress: 0.0〜1.0 の進捗（モデル50%まで、CSV残り50%）
         /// </summary>
+        /// <summary>パス・URL直接指定でダウンロード</summary>
         public static async Task EnsureModelFilesAsync(
             string modelPath,
             string csvPath,
+            string modelUrl = MODEL_URL,
+            string csvUrl = CSV_URL,
             IProgress<(double Ratio, string Message)> progress = null,
             CancellationToken ct = default)
         {
@@ -58,18 +149,19 @@ namespace TagFilter
                 if (!File.Exists(modelPath))
                 {
                     progress?.Report((0.0, "モデルをダウンロード中..."));
-                    await DownloadFileAsync(client, MODEL_URL, modelPath,
-                        ratio => progress?.Report((ratio * 0.9, $"モデルをダウンロード中... {ratio:P0}")), ct);
+                    await DownloadFileAsync(client, modelUrl, modelPath,
+                        ratio => progress?.Report((ratio * 0.9,
+                            $"モデルをダウンロード中... {ratio:P0}")), ct);
                 }
 
                 if (!File.Exists(csvPath))
                 {
                     progress?.Report((0.9, "タグCSVをダウンロード中..."));
-                    await DownloadFileAsync(client, CSV_URL, csvPath,
-                        ratio => progress?.Report((0.9 + ratio * 0.1, $"タグCSVをダウンロード中... {ratio:P0}")), ct);
+                    await DownloadFileAsync(client, csvUrl, csvPath,
+                        ratio => progress?.Report((0.9 + ratio * 0.1,
+                            $"タグCSVをダウンロード中... {ratio:P0}")), ct);
                 }
             }
-
             progress?.Report((1.0, "ダウンロード完了"));
         }
 
@@ -149,6 +241,9 @@ namespace TagFilter
             if (!File.Exists(imagePath))
                 throw new FileNotFoundException($"画像が見つかりません: {imagePath}");
 
+            // OneDriveファイルを強制ローカル化
+            FileHelper.EnsureLocal(imagePath);
+
             using (var mat = Cv2.ImRead(imagePath, ImreadModes.Unchanged))
             {
                 if (mat.Empty())
@@ -163,11 +258,19 @@ namespace TagFilter
                 using (var results = _session.Run(inputs))
                 {
                     var scores = results.First().AsEnumerable<float>().ToArray();
-                    return _tags
-                        .Select((tag, i) => new PredictedTag(tag, i < scores.Length ? scores[i] : 0f))
-                        .Where(p => p.Score >= threshold && p.Tag.Category != TagCategory.Rating)
-                        .OrderByDescending(p => p.Score)
-                        .ToList();
+                    var predicted = new List<PredictedTag>();
+                    for (int i = 0; i < _tags.Count && i < scores.Length; i++)
+                    {
+                        if (scores[i] >= threshold)
+                        {
+                            predicted.Add(new PredictedTag(
+                                new TagEntry(i, _tags[i].Name, (TagCategory)_tags[i].CsvCategory, _tags[i].CsvCategory),
+                                scores[i],
+                                _tags[i].CsvCategory));
+                        }
+                    }
+
+                    return predicted.OrderByDescending(p => p.Score).ToList();
                 }
             }
         }
@@ -195,21 +298,21 @@ namespace TagFilter
                         Cv2.Resize(padded, resized,
                             new OpenCvSharp.Size(IMAGE_SIZE, IMAGE_SIZE),
                             interpolation: InterpolationFlags.Area);
-                        using (var rgb = new Mat())
+                        // ── BGR変換なし・OpenCVのBGRをそのまま送る──
                         {
-                            Cv2.CvtColor(resized, rgb, ColorConversionCodes.BGR2RGB);
                             var tensor = new DenseTensor<float>(
                                 new[] { 1, IMAGE_SIZE, IMAGE_SIZE, 3 });
                             for (int y = 0; y < IMAGE_SIZE; y++)
                                 for (int x = 0; x < IMAGE_SIZE; x++)
                                 {
-                                    var pixel = rgb.At<Vec3b>(y, x);
-                                    tensor[0, y, x, 0] = pixel.Item0;
-                                    tensor[0, y, x, 1] = pixel.Item1;
-                                    tensor[0, y, x, 2] = pixel.Item2;
+                                    var pixel = resized.At<Vec3b>(y, x);
+                                    tensor[0, y, x, 0] = pixel.Item0; // B
+                                    tensor[0, y, x, 1] = pixel.Item1; // G
+                                    tensor[0, y, x, 2] = pixel.Item2; // R
                                 }
                             return tensor;
                         }
+
                     }
                 }
             }
@@ -258,40 +361,58 @@ namespace TagFilter
             return mat;
         }
 
-        private List<TagEntry> LoadTags(string csvPath)
+        // タグ情報（名前＋CSVカテゴリ番号）
+        private class TagInfo
         {
-            var result = new List<TagEntry>();
-            var lines = File.ReadAllLines(csvPath);
-            for (int i = 1; i < lines.Length; i++)
+            public string Name { get; }
+            public int CsvCategory { get; }
+            public TagInfo(string name, int csvCategory)
+            { Name = name; CsvCategory = csvCategory; }
+        }
+
+        private List<TagInfo> LoadTags(string csvPath)
+        {
+            var tags = new List<TagInfo>();
+            bool isFirst = true;
+            foreach (var line in File.ReadLines(csvPath))
             {
-                var line = lines[i].Trim();
-                if (string.IsNullOrEmpty(line)) continue;
-                var cols = line.Split(',');
-                if (cols.Length < 3) continue;
-                if (!int.TryParse(cols[0].Trim(), out int id)) continue;
-                if (!int.TryParse(cols[2].Trim(), out int categoryInt)) continue;
-                result.Add(new TagEntry(id, cols[1].Trim(), (TagCategory)categoryInt));
+                if (isFirst) { isFirst = false; continue; } // ヘッダースキップ
+                var parts = line.Split(',');
+                if (parts.Length < 3) continue;
+                var name = parts[1].Trim().Replace(" ", "_");
+                int.TryParse(parts[2].Trim(), out int cat);
+                tags.Add(new TagInfo(name, cat));
             }
-            return result;
+            return tags;
         }
 
         public void Dispose() => _session?.Dispose();
     }
+
+
 
     public class TagEntry
     {
         public int Id { get; }
         public string Name { get; }
         public TagCategory Category { get; }
-        public TagEntry(int id, string name, TagCategory category)
-        { Id = id; Name = name; Category = category; }
+        public int CsvCategory { get; }  
+        public TagEntry(int id, string name, TagCategory category, int csvCategory = 0)
+        {
+            Id = id;
+            Name = name;
+            Category = category;
+            CsvCategory = csvCategory;  
+        }
     }
 
     public class PredictedTag
     {
         public TagEntry Tag { get; }
         public float Score { get; }
-        public PredictedTag(TagEntry tag, float score) { Tag = tag; Score = score; }
+        public int CsvCategory { get; }
+        public PredictedTag(TagEntry tag, float score, int csvCategory = 0)
+        { Tag = tag; Score = score; CsvCategory = csvCategory; }
     }
 
     public enum TagCategory

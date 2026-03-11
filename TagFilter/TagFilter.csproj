@@ -106,7 +106,9 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="AppSettings.cs" />
     <Compile Include="DatasetItem.cs" />
+    <Compile Include="FileHelper.cs" />
     <Compile Include="MainVewModel.cs" />
     <Compile Include="Polyfill.cs" />
     <Compile Include="TagClassifier.cs" />

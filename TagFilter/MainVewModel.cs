@@ -16,11 +16,64 @@ namespace TagFilter
         private WD14TaggerService _tagger;
         private readonly TagClassifier _classifier;
 
-        // exeと同じフォルダのモデルパス（固定）
+
+        // 選択中のプリセット（デフォルトはインデックス0）
+        public WD14ModelPreset CurrentPreset { get; private set; }
+            = WD14ModelPreset.All[0];
+
         public static string DefaultModelPath =>
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wd-v1-4-vit-tagger-v2.onnx");
+            WD14ModelPreset.All[0].OnnxPath;
         public static string DefaultCsvPath =>
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "selected_tags.csv");
+            WD14ModelPreset.All[0].CsvPath;
+
+        private void TryLoadDefaultModel()
+        {
+            TryLoadPreset(CurrentPreset, ExecutionDevice.Auto);
+        }
+
+        private void TryLoadPreset(WD14ModelPreset preset, ExecutionDevice device)
+        {
+            if (!File.Exists(preset.OnnxPath) || !File.Exists(preset.CsvPath)) return;
+            try
+            {
+                _tagger?.Dispose();
+                _lastModelPath = preset.OnnxPath;
+                _lastCsvPath = preset.CsvPath;
+                CurrentPreset = preset;
+                _tagger = new WD14TaggerService(preset.OnnxPath, preset.CsvPath, device);
+            }
+            catch (Exception ex)
+            {
+                _tagger = null;
+                System.Diagnostics.Debug.WriteLine($"[MODEL] ロード失敗: {ex}");
+            }
+        }
+
+
+        /// <summary>プリセットを切り替えてロード（未DLならダウンロードも行う）</summary>
+        public async Task<bool> EnsureAndLoadModelAsync(
+            WD14ModelPreset preset,
+            ExecutionDevice device,
+            IProgress<(double Ratio, string Message)> progress,
+            CancellationToken ct = default)
+        {
+            try
+            {
+                await WD14TaggerService.EnsureModelFilesAsync(preset, progress, ct);
+
+                _tagger?.Dispose();
+                _lastModelPath = preset.OnnxPath;
+                _lastCsvPath = preset.CsvPath;
+                CurrentPreset = preset;
+                return LoadModel(preset.OnnxPath, preset.CsvPath, device);
+            }
+            catch (OperationCanceledException) { return false; }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DOWNLOAD] 失敗: {ex}");
+                throw;
+            }
+        }
 
         private string _lastModelPath;
         private string _lastCsvPath;
@@ -36,23 +89,6 @@ namespace TagFilter
             TryLoadDefaultModel();
         }
 
-        private void TryLoadDefaultModel()
-        {
-            var modelPath = DefaultModelPath;
-            var csvPath = DefaultCsvPath;
-            if (!File.Exists(modelPath) || !File.Exists(csvPath)) return;
-
-            try
-            {
-                _lastModelPath = modelPath;
-                _lastCsvPath = csvPath;
-                _tagger = new WD14TaggerService(modelPath, csvPath, ExecutionDevice.Auto);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[MODEL] ロード失敗: {ex}");
-            }
-        }
 
         public bool LoadModel(string modelPath, string csvPath,
                               ExecutionDevice device = ExecutionDevice.Auto)
@@ -70,42 +106,23 @@ namespace TagFilter
 
         public void ReloadWithDevice(ExecutionDevice device)
         {
-            if (_lastModelPath == null) return;
+            if (_lastModelPath == null || _lastCsvPath == null) return;
             try
             {
-                _tagger?.Dispose();
+                var old = _tagger;
+                _tagger = null;          // 先にnullにしてから
+                old?.Dispose();          // 破棄
                 _tagger = new WD14TaggerService(_lastModelPath, _lastCsvPath, device);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[MODEL] 再ロード失敗: {ex}");
+                _tagger = null;          // 失敗時は確実にnullに
+                throw new InvalidOperationException(
+                    $"モデルの再ロードに失敗しました:\n{ex.Message}", ex);
             }
         }
 
-        /// <summary>モデルファイルが無ければダウンロードしてからロードする</summary>
-        public async Task<bool> EnsureAndLoadModelAsync(
-            ExecutionDevice device,
-            IProgress<(double Ratio, string Message)> progress,
-            CancellationToken ct = default)
-        {
-            var modelPath = DefaultModelPath;
-            var csvPath = DefaultCsvPath;
 
-            try
-            {
-                await WD14TaggerService.EnsureModelFilesAsync(modelPath, csvPath, progress, ct);
-                return LoadModel(modelPath, csvPath, device);
-            }
-            catch (OperationCanceledException)
-            {
-                return false;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[DOWNLOAD] 失敗: {ex}");
-                throw;
-            }
-        }
 
         public async Task LoadFolderAsync(string folderPath)
         {
@@ -150,12 +167,14 @@ namespace TagFilter
                         var filtered = keepCategories == null
                             ? predicted
                             : predicted.Where(p =>
-                                keepCategories.Contains(_classifier.Classify(p.Tag.Name))).ToList();
+                                keepCategories.Contains(
+                                    _classifier.ClassifyWithCsvCategory(p.Tag.Name, p.CsvCategory))
+                              ).ToList();
 
                         item.Tags = new ObservableCollection<TagViewModel>(
                             filtered.Select(p => new TagViewModel(
                                 p.Tag.Name, p.Score,
-                                _classifier.Classify(p.Tag.Name))));
+                                _classifier.ClassifyWithCsvCategory(p.Tag.Name, p.CsvCategory))));
                         item.SaveTagsToFile();
                     });
 

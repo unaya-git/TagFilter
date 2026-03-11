@@ -226,95 +226,98 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="48"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="28"/>
         </Grid.RowDefinitions>
 
-        <!-- ══ ツールバー（2段構成） ══ -->
+        <!-- ══ ツールバー（2段）══ -->
         <Border Grid.Row="0" Background="{StaticResource BgSurface}">
-            <DockPanel VerticalAlignment="Center" Margin="12,0">
+            <StackPanel Orientation="Vertical" Margin="12,7,12,7">
 
-                <!-- 右：閾値 + プログレス -->
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <TextBlock Text="閾値:" Foreground="{StaticResource TextSub}"
-                               VerticalAlignment="Center" Margin="0,0,4,0"/>
-                    <Slider x:Name="SliderThreshold" Minimum="0.1" Maximum="0.9" Value="0.35"
-                            Width="80" VerticalAlignment="Center"
-                            Foreground="{StaticResource AccentBlue}"/>
-                    <TextBlock Foreground="{StaticResource AccentBlue}"
-                               VerticalAlignment="Center" Margin="4,0,16,0" Width="32"
-                               Text="{Binding ElementName=SliderThreshold, Path=Value, StringFormat={}{0:F2}}"/>
-                    <ProgressBar x:Name="ProgressBar" Width="140" Height="8"
-                                 Visibility="Collapsed"
-                                 Foreground="{StaticResource AccentGreen}"
-                                 Background="{StaticResource BgPanel}"/>
-                    <TextBlock x:Name="TxtProgress" Foreground="{StaticResource TextSub}"
-                               VerticalAlignment="Center" Margin="6,0,0,0" Visibility="Collapsed"/>
-                </StackPanel>
+                <!-- 1段目：フォルダ・モデル・推論・自動タグ付け・閾値・進捗 -->
+                <DockPanel>
+                    <!-- 右：閾値 + プログレス -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <ProgressBar x:Name="ProgressBar" Width="120" Height="8"
+                             Visibility="Collapsed"
+                             Foreground="{StaticResource AccentGreen}"
+                             Background="{StaticResource BgPanel}"/>
+                        <TextBlock x:Name="TxtProgress" Foreground="{StaticResource TextSub}"
+                           VerticalAlignment="Center" Margin="6,0,10,0" Visibility="Collapsed"/>
+                        <TextBlock Text="閾値:" Foreground="{StaticResource TextSub}"
+                           VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <Slider x:Name="SliderThreshold" Minimum="0.1" Maximum="0.9" Value="0.35"
+                        Width="80" VerticalAlignment="Center"
+                        Foreground="{StaticResource AccentBlue}"/>
+                        <TextBlock Foreground="{StaticResource AccentBlue}"
+                           VerticalAlignment="Center" Margin="4,0,0,0" Width="32"
+                           Text="{Binding ElementName=SliderThreshold, Path=Value, StringFormat={}{0:F2}}"/>
+                    </StackPanel>
+                    <!-- 左：基本操作 + モデル + 推論 + 自動タグ付け -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="BtnOpenFolder" Content="フォルダを開く"
+                        Style="{StaticResource FlatButton}"
+                        Click="BtnOpenFolder_Click" Margin="0,0,6,0"/>
+                        <Button x:Name="BtnSaveAll" Content="全て保存"
+                        Style="{StaticResource FlatButton}"
+                        Click="BtnSaveAll_Click" Margin="0,0,12,0"/>
+                        <Separator Width="1" Background="{StaticResource BgPanel}" Margin="0,4,12,4"/>
+                        <TextBlock Text="モデル:" Foreground="{StaticResource TextSub}"
+                           VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11"/>
+                        <ComboBox x:Name="CmbModel" Style="{StaticResource DarkComboBox}"
+                          Width="160" Margin="0,0,4,0" VerticalAlignment="Center"
+                          SelectionChanged="CmbModel_SelectionChanged"/>
+                        <Border x:Name="ModelStatusIndicator" CornerRadius="3" Padding="5,2"
+                        Margin="0,0,12,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="TxtModelStatus" FontSize="10" Text=""/>
+                        </Border>
+                        <Separator Width="1" Background="{StaticResource BgPanel}" Margin="0,4,12,4"/>
+                        <TextBlock Text="推論:" Foreground="{StaticResource TextSub}"
+                           VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11"/>
+                        <ComboBox x:Name="CmbLoraMode" Style="{StaticResource DarkComboBox}"
+                          Width="130" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                        <Separator Width="1" Background="{StaticResource BgPanel}" Margin="0,4,12,4"/>
+                        <Button x:Name="BtnAutoTag" Content="自動タグ付け"
+                        Style="{StaticResource FlatButton}"
+                        Click="BtnAutoTag_Click"
+                        Background="{StaticResource AccentBlue}"
+                        Foreground="#1E1E2E"/>
+                    </StackPanel>
+                </DockPanel>
 
-                <!-- 左：基本操作 + 推論設定 -->
-                <StackPanel Orientation="Horizontal">
-                    <Button x:Name="BtnOpenFolder" Content="フォルダを開く"
-                            Style="{StaticResource FlatButton}"
-                            Click="BtnOpenFolder_Click" Margin="0,0,6,0"/>
-                    <Button x:Name="BtnSaveAll" Content="全て保存"
-                            Style="{StaticResource FlatButton}"
-                            Click="BtnSaveAll_Click" Margin="0,0,12,0"/>
+                <!-- 2段目：デバイス + 並列数 -->
+                <DockPanel Margin="0,6,0,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="デバイス:" Foreground="{StaticResource TextSub}"
+                           VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11"/>
+                        <ComboBox x:Name="CmbDevice" Style="{StaticResource DarkComboBox}"
+                          Width="80" Margin="0,0,8,0" VerticalAlignment="Center"
+                          SelectionChanged="CmbDevice_SelectionChanged">
+                            <ComboBoxItem Content="自動"/>
+                            <ComboBoxItem Content="GPU"/>
+                            <ComboBoxItem Content="CPU"/>
+                        </ComboBox>
+                        <Border x:Name="GpuIndicator" CornerRadius="3" Padding="6,3"
+                        Margin="0,0,16,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="TxtGpuStatus" FontSize="10" Text="確認中..."/>
+                        </Border>
+                        <Separator Width="1" Background="{StaticResource BgPanel}" Margin="0,4,16,4"/>
+                        <TextBlock Text="並列数:" Foreground="{StaticResource TextSub}"
+                           VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11"/>
+                        <Button Content="-" Width="24" Height="24"
+                        Style="{StaticResource FlatButton}" Padding="0"
+                        Click="BtnParallelMinus_Click"/>
+                        <TextBox x:Name="TxtParallel" Width="36" Height="24"
+                         Style="{StaticResource NumericBox}" Margin="2,0" Text="1"
+                         PreviewTextInput="TxtParallel_PreviewTextInput"/>
+                        <Button Content="+" Width="24" Height="24"
+                        Style="{StaticResource FlatButton}" Padding="0"
+                        Click="BtnParallelPlus_Click"/>
+                    </StackPanel>
+                </DockPanel>
 
-                    <Separator Width="1" Background="{StaticResource BgPanel}" Margin="0,8,12,8"/>
-
-                    <!-- 推論カテゴリ -->
-                    <TextBlock Text="推論:" Foreground="{StaticResource TextSub}"
-                               VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11"/>
-                    <ComboBox x:Name="CmbLoraMode" Style="{StaticResource DarkComboBox}"
-                              Width="130" Margin="0,0,12,0" VerticalAlignment="Center"/>
-
-                    <Separator Width="1" Background="{StaticResource BgPanel}" Margin="0,8,12,8"/>
-
-                    <!-- デバイス選択 -->
-                    <TextBlock Text="デバイス:" Foreground="{StaticResource TextSub}"
-                               VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11"/>
-                    <ComboBox x:Name="CmbDevice" Style="{StaticResource DarkComboBox}"
-                              Width="80" Margin="0,0,8,0" VerticalAlignment="Center"
-                              SelectionChanged="CmbDevice_SelectionChanged">
-                        <ComboBoxItem Content="自動"/>
-                        <ComboBoxItem Content="GPU"/>
-                        <ComboBoxItem Content="CPU"/>
-                    </ComboBox>
-                    <!-- GPU可否インジケータ -->
-                    <Border x:Name="GpuIndicator"
-                            CornerRadius="3" Padding="6,3" Margin="0,0,12,0"
-                            VerticalAlignment="Center">
-                        <TextBlock x:Name="TxtGpuStatus" FontSize="10"
-                                   Foreground="#1E1E2E" Text="確認中..."/>
-                    </Border>
-
-                    <Separator Width="1" Background="{StaticResource BgPanel}" Margin="0,8,12,8"/>
-
-                    <!-- 並列処理数 -->
-                    <TextBlock Text="並列数:" Foreground="{StaticResource TextSub}"
-                               VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11"/>
-                    <Button Content="-" Width="24" Height="24"
-                            Style="{StaticResource FlatButton}" Padding="0"
-                            Click="BtnParallelMinus_Click"/>
-                    <TextBox x:Name="TxtParallel" Width="36" Height="24"
-                             Style="{StaticResource NumericBox}"
-                             Margin="2,0" Text="1"
-                             PreviewTextInput="TxtParallel_PreviewTextInput"/>
-                    <Button Content="+" Width="24" Height="24"
-                            Style="{StaticResource FlatButton}" Padding="0"
-                            Click="BtnParallelPlus_Click" Margin="0,0,12,0"/>
-
-                    <Separator Width="1" Background="{StaticResource BgPanel}" Margin="0,8,12,8"/>
-
-                    <Button x:Name="BtnAutoTag" Content="自動タグ付け"
-                            Style="{StaticResource FlatButton}"
-                            Click="BtnAutoTag_Click"
-                            Background="{StaticResource AccentBlue}"
-                            Foreground="#1E1E2E"/>
-                </StackPanel>
-            </DockPanel>
+            </StackPanel>
         </Border>
 
         <!-- ══ メインコンテンツ ══ -->
@@ -372,13 +375,74 @@
             <Grid Grid.Column="2" Background="{StaticResource BgBase}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <!-- タグ集計パネル -->
                     <RowDefinition Height="Auto"/>
+                    <!-- 表示フィルタ -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- 一括操作 -->
                     <RowDefinition Height="*"/>
+                    <!-- 一覧 -->
                     <RowDefinition Height="Auto"/>
+                    <!-- タグ追加 -->
                 </Grid.RowDefinitions>
 
+                <!-- タグ集計パネル -->
+                <Border Grid.Row="0" Background="{StaticResource BgSurface}"
+        BorderBrush="{StaticResource BgBase}" BorderThickness="0,0,0,1">
+                    <Expander x:Name="TagSummaryExpander" IsExpanded="True"
+              Background="Transparent" BorderThickness="0"
+              Foreground="{StaticResource TextMain}">
+                        <Expander.Header>
+                            <DockPanel Width="800">
+                                <TextBlock DockPanel.Dock="Left"
+                           Text="タグ集計" FontSize="11"
+                           Foreground="{StaticResource TextSub}"
+                           VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                <TextBlock x:Name="TxtSummaryInfo" DockPanel.Dock="Left"
+                           FontSize="11" Foreground="{StaticResource TextSub}"
+                           VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </DockPanel>
+                        </Expander.Header>
+                        <Grid Margin="8,0,8,8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- ソート切替 + 選択中タグの削除ボタン -->
+                            <DockPanel Grid.Row="0" Margin="0,4,0,4">
+                                <Button x:Name="BtnDeleteSelectedSummaryTag"
+                        DockPanel.Dock="Right"
+                        Content="選択タグを全削除"
+                        Style="{StaticResource FlatButton}"
+                        Foreground="{StaticResource AccentRed}"
+                        IsEnabled="False"
+                        Click="BtnDeleteSelectedSummaryTag_Click"/>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="並び順:" Foreground="{StaticResource TextSub}"
+                               VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"/>
+                                    <ToggleButton x:Name="SortByCount" Content="件数順" IsChecked="True"
+                                  Style="{StaticResource CategoryToggle}"
+                                  Checked="SortToggle_Changed" Unchecked="SortToggle_Changed"/>
+                                    <ToggleButton x:Name="SortByName" Content="名前順"
+                                  Style="{StaticResource CategoryToggle}"
+                                  Checked="SortToggle_Changed" Unchecked="SortToggle_Changed"/>
+                                </StackPanel>
+                            </DockPanel>
+
+                            <!-- タグチップ一覧 -->
+                            <ScrollViewer Grid.Row="1"
+                          MaxHeight="120"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                                <WrapPanel x:Name="TagSummaryPanel" Orientation="Horizontal"/>
+                            </ScrollViewer>
+                        </Grid>
+                    </Expander>
+                </Border>
+
                 <!-- 行1：表示フィルタ -->
-                <Border Grid.Row="0" Background="{StaticResource BgSurface}" Padding="10,7">
+                <Border Grid.Row="1" Background="{StaticResource BgSurface}" Padding="10,7">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="表示フィルタ:" Foreground="{StaticResource TextSub}"
                                    VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"/>
@@ -396,45 +460,88 @@
                                       Style="{StaticResource CategoryToggle}" Tag="Background"/>
                         <ToggleButton x:Name="FilterStyle"  Content="スタイル"
                                       Style="{StaticResource CategoryToggle}" Tag="Style"/>
+                        <ToggleButton x:Name="FilterExpression" Content="表現"
+                                      Style="{StaticResource CategoryToggle}" Tag="Expression"/>
+                        <ToggleButton x:Name="FilterCharacter"  Content="キャラ"
+                                      Style="{StaticResource CategoryToggle}" Tag="Character"/>
+                        <ToggleButton x:Name="FilterCopyright"  Content="作品名"
+                                      Style="{StaticResource CategoryToggle}" Tag="Copyright"/>
+                        <ToggleButton x:Name="FilterArtist"     Content="作者"
+                                      Style="{StaticResource CategoryToggle}" Tag="Artist"/>
                         <ToggleButton x:Name="FilterOther"  Content="その他"
                                       Style="{StaticResource CategoryToggle}" Tag="Other"/>
                     </StackPanel>
                 </Border>
 
-                <!-- 行2：一括操作 -->
-                <Border Grid.Row="1" Background="{StaticResource BgBase}"
-                        BorderBrush="{StaticResource BgSurface}" BorderThickness="0,1,0,1"
-                        Padding="10,6">
-                    <DockPanel>
-                        <Button x:Name="BtnBulkDeleteCategory"
-                                DockPanel.Dock="Right"
-                                Content="選択中カテゴリを削除"
-                                Style="{StaticResource FlatButton}"
-                                Click="BtnBulkDeleteCategory_Click"
-                                Foreground="{StaticResource AccentRed}"
-                                IsEnabled="False"/>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="一括挿入（全画像）:"
-                                       Foreground="{StaticResource TextSub}"
-                                       VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
-                            <TextBox x:Name="TxtBulkTag" Width="180"
-                                     Background="{StaticResource BgPanel}"
-                                     Foreground="{StaticResource TextMain}"
-                                     BorderThickness="0" Padding="8,5" FontSize="12"
-                                     CaretBrush="{StaticResource AccentBlue}"
-                                     KeyDown="TxtBulkTag_KeyDown"/>
-                            <Button Content="挿入"
-                                    Style="{StaticResource FlatButton}"
-                                    Click="BtnBulkInsert_Click"
-                                    Foreground="{StaticResource AccentGreen}"
-                                    Margin="6,0,0,0"/>
-                        </StackPanel>
-                    </DockPanel>
+                <!-- 行2：一括操作 + 不要タグ管理 -->
+                <Border Grid.Row="2" Background="{StaticResource BgBase}"
+        BorderBrush="{StaticResource BgSurface}" BorderThickness="0,1,0,1"
+        Padding="10,6">
+                    <StackPanel Orientation="Vertical">
+
+                        <!-- 一括挿入 + カテゴリ削除 -->
+                        <DockPanel Margin="0,0,0,5">
+                            <Button x:Name="BtnBulkDeleteCategory" DockPanel.Dock="Right"
+                    Content="選択中カテゴリを削除"
+                    Style="{StaticResource FlatButton}"
+                    Click="BtnBulkDeleteCategory_Click"
+                    Foreground="{StaticResource AccentRed}"
+                    IsEnabled="False"/>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="一括挿入（全画像）:"
+                           Foreground="{StaticResource TextSub}"
+                           VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                                <TextBox x:Name="TxtBulkTag" Width="180"
+                         Background="{StaticResource BgPanel}"
+                         Foreground="{StaticResource TextMain}"
+                         BorderThickness="0" Padding="8,5" FontSize="12"
+                         CaretBrush="{StaticResource AccentBlue}"
+                         KeyDown="TxtBulkTag_KeyDown"/>
+                                <Button Content="挿入" Style="{StaticResource FlatButton}"
+                        Click="BtnBulkInsert_Click"
+                        Foreground="{StaticResource AccentGreen}"
+                        Margin="6,0,0,0"/>
+                            </StackPanel>
+                        </DockPanel>
+
+                        <!-- 不要タグ入力 + 一括削除ボタン -->
+                        <DockPanel Margin="0,0,0,5">
+                            <Button x:Name="BtnBulkDeleteTag" DockPanel.Dock="Right"
+                    Content="このタグを全削除"
+                    Style="{StaticResource FlatButton}"
+                    Click="BtnBulkDeleteTag_Click"
+                    Foreground="{StaticResource AccentRed}"
+                    IsEnabled="False"/>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="不要タグ削除（全画像）:"
+                           Foreground="{StaticResource TextSub}"
+                           VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                                <TextBox x:Name="TxtDeleteTag" Width="160"
+                         Background="{StaticResource BgPanel}"
+                         Foreground="{StaticResource TextMain}"
+                         BorderThickness="0" Padding="8,5" FontSize="12"
+                         CaretBrush="{StaticResource AccentBlue}"
+                         TextChanged="TxtDeleteTag_TextChanged"
+                         KeyDown="TxtDeleteTag_KeyDown"/>
+                                <Button Content="登録" Style="{StaticResource FlatButton}"
+                        Click="BtnAddUnwantedTag_Click"
+                        Foreground="{StaticResource AccentBlue}"
+                        Margin="6,0,0,0"/>
+                            </StackPanel>
+                        </DockPanel>
+
+                        <!-- 登録済み不要タグチップ -->
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto" MaxHeight="58">
+                            <WrapPanel x:Name="UnwantedTagsPanel" Orientation="Horizontal"/>
+                        </ScrollViewer>
+
+                    </StackPanel>
                 </Border>
 
                 <!-- 行3：全ファイル一覧 -->
                 <ListView x:Name="AllItemsListView"
-                          Grid.Row="2"
+                          Grid.Row="3"
                           Background="Transparent" BorderThickness="0"
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                           VirtualizingStackPanel.IsVirtualizing="True"
@@ -493,7 +600,7 @@
                 </ListView>
 
                 <!-- 行4：タグ追加 -->
-                <Border Grid.Row="3" Background="{StaticResource BgSurface}" Padding="12,8">
+                <Border Grid.Row="4" Background="{StaticResource BgSurface}" Padding="12,8">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Left"
                                    Text="選択画像にタグを追加:"
