@@ -771,7 +771,10 @@ namespace TagFilter
 
             var keepCategories = GetSelectedLoraCategories();
             string modeName = LoraModes[CmbLoraMode.SelectedIndex].Label;
-            int parallel = GetParallelCount();
+            //int parallel = GetParallelCount();
+            // GPU使用時は並列1固定（DirectMLはスレッドセーフでないため）
+            bool useGpu = GetExecutionDevice() != ExecutionDevice.Cpu;
+            int parallel = useGpu ? 1 : GetParallelCount();
             string deviceLabel = GetExecutionDevice() == ExecutionDevice.Gpu ? "DirectML" : "CPU";
 
             BtnAutoTag.IsEnabled = false;
@@ -792,7 +795,8 @@ namespace TagFilter
             try
             {
                 await _vm.BatchTagAsync(targets, (float)SliderThreshold.Value,
-                                        progress, keepCategories, parallel);
+                                        progress, keepCategories, parallel                                       
+                                        );
                 RebuildDisplayItems();
                 SetStatus($"完了: [{modeName} / {deviceLabel} x{parallel}]  {targets.Count} 枚");
             }

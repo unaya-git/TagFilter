@@ -148,10 +148,13 @@ namespace TagFilter
             float threshold = 0.35f,
             IProgress<int> progress = null,
             HashSet<BodyPartCategory> keepCategories = null,
-            int parallelCount = 1)
+            int parallelCount = 1
+            //Action<string> onError = null
+            )
         {
             int count = 0;
             var targetList = targets.ToList();
+            var errorFiles = new System.Collections.Concurrent.ConcurrentBag<string>();
             var semaphore = new SemaphoreSlim(Math.Max(1, parallelCount));
 
             var tasks = targetList.Select(async item =>
@@ -182,13 +185,29 @@ namespace TagFilter
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[INFER ERROR] {item.FileName}: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[INFER ERROR] {item.FileName}: {ex.GetType().Name}: {ex.Message}");
+                    errorFiles.Add(item.FileName);
                     progress?.Report(Interlocked.Increment(ref count));
+
                 }
                 finally { semaphore.Release(); }
             });
 
             await Task.WhenAll(tasks);
+
+            if (errorFiles.Count > 0)
+            {
+                var msg = errorFiles.Count == 1
+                    ? $"以下の画像でタグ付けに失敗しました:\n{errorFiles.First()}"
+                    : $"{errorFiles.Count} 枚の画像でタグ付けに失敗しました:\n"
+                      + string.Join("\n", errorFiles.Take(10))
+                      + (errorFiles.Count > 10 ? $"\n...他 {errorFiles.Count - 10} 件" : "");
+
+                Application.Current.Dispatcher.Invoke(() =>
+                    MessageBox.Show(msg, "タグ付けエラー",
+                        MessageBoxButton.OK, MessageBoxImage.Warning));
+            }
         }
 
         public void BulkInsertTag(string tagName, IEnumerable<DatasetItem> targets)

@@ -91,6 +91,7 @@ namespace TagFilter
         private const int IMAGE_SIZE = 448;
         private const float DEFAULT_THRESHOLD = 0.35f;
         private string _inputName;
+        private readonly object _sessionLock = new object();
 
         // ── Hugging Face ダウンロードURL ───────────────────────────────
         // 後方互換用（デフォルトモデルのURL）
@@ -100,19 +101,21 @@ namespace TagFilter
             "https://huggingface.co/SmilingWolf/wd-v1-4-vit-tagger-v2/resolve/main/selected_tags.csv";
 
         // ── DirectML 使用可否チェック ──────────────────────────────────
+        private static readonly object _dmlCheckLock = new object();
         public static bool IsDirectMLAvailable()
         {
-            try
+            lock (_dmlCheckLock)
             {
-                // DirectML はDX12対応GPUがあれば使える（Windows標準）
-                // ダミーセッション生成で確認
-                using (var opt = new SessionOptions())
+                try
                 {
-                    opt.AppendExecutionProvider_DML(0);
+                    using (var opt = new SessionOptions())
+                    {
+                        opt.AppendExecutionProvider_DML(0);
+                    }
+                    return true;
                 }
-                return true;
+                catch { return false; }
             }
-            catch { return false; }
         }
 
         // ── モデルファイルのダウンロード ───────────────────────────────
@@ -255,7 +258,13 @@ namespace TagFilter
                     NamedOnnxValue.CreateFromTensor(_inputName, tensor)
                 };
 
-                using (var results = _session.Run(inputs))
+                //using (var results = _session.Run(inputs))
+                IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results;
+                lock (_sessionLock)
+                {
+                    results = _session.Run(inputs);
+                }
+                using (results)
                 {
                     var scores = results.First().AsEnumerable<float>().ToArray();
                     var predicted = new List<PredictedTag>();
@@ -277,9 +286,22 @@ namespace TagFilter
 
         private DenseTensor<float> PreprocessImage(Mat src)
         {
-            Mat workMat = src.Channels() == 4
-                ? CompositeOnWhiteViaGdi(src)
-                : src.Clone();
+
+            Mat workMat;
+            switch (src.Channels())
+            {
+                case 4:
+                    workMat = CompositeOnWhiteViaGdi(src);
+                    break;
+                case 1: // グレースケール
+                case 2: // グレースケール+α（まれ）
+                    workMat = new Mat();
+                    Cv2.CvtColor(src, workMat, ColorConversionCodes.GRAY2BGR);
+                    break;
+                default: // 3チャンネル（通常BGR）
+                    workMat = src.Clone();
+                    break;
+            }
 
             using (workMat)
             {
