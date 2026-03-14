@@ -111,9 +111,9 @@ rem 服装LoRA用・挿入タグなし
 TagFilter.exe "E:\dataset\chara_A" 2
 
 rem 複数フォルダを連続処理
-TagFilter.exe "E:\dataset\chara_A" 1 "jpn_girl"
-TagFilter.exe "E:\dataset\chara_B" 1 "jpn_girl"
-TagFilter.exe "E:\dataset\chara_C" 1 "jpn_girl"
+TagFilter.exe "E:\dataset\chara_A" 1 "ch_a"
+TagFilter.exe "E:\dataset\chara_B" 1 "ch_b"
+TagFilter.exe "E:\dataset\chara_C" 1 "ch_c"
 ```
 
 ---
