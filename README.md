@@ -105,7 +105,7 @@ TagFilter.exe <フォルダパス> [LoRAモード番号] [挿入タグ]
 ```bat
 @echo off
 rem 顔LoRA用・挿入タグあり
-TagFilter.exe "E:\dataset\chara_A" 1 "masterpiece,best_quality"
+TagFilter.exe "E:\dataset\chara_A" 1 "chr"
 
 rem 服装LoRA用・挿入タグなし
 TagFilter.exe "E:\dataset\chara_A" 2
