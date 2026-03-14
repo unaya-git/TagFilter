@@ -108,7 +108,12 @@ namespace TagFilter
             RebuildUnwantedTagChips();
 
             Closing += MainWindow_Closing;
-            Loaded += async (_, __) => await CheckGpuAsync();
+            //Loaded += async (_, __) => await CheckGpuAsync();
+            Loaded += async (_, __) =>
+            {
+                await CheckGpuAsync();
+                await HandleCommandLineArgsAsync();
+            };
         }
 
         // ウィンドウ終了時に保存
@@ -120,6 +125,76 @@ namespace TagFilter
             _settings.LoraModeIndex = CmbLoraMode.SelectedIndex;
             _settings.Threshold = SliderThreshold.Value;
             _settings.Save();
+        }
+
+        // ドラッグアンドドロップ対応
+        private void Window_DragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
+                ? DragDropEffects.Copy
+                : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private async void Window_Drop(object sender, DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+            var paths = (string[])e.Data.GetData(DataFormats.FileDrop);
+            var folder = paths.FirstOrDefault(p => Directory.Exists(p));
+            if (folder == null) return;
+            await LoadFolderByPathAsync(folder);
+        }
+
+
+        // ---- コマンドライン引数処理 ----
+        private async Task HandleCommandLineArgsAsync()
+        {
+            var args = Environment.GetCommandLineArgs();
+            if (args.Length < 2) return;
+
+            string folderPath = args[1];
+            if (!Directory.Exists(folderPath))
+            {
+                MessageBox.Show($"フォルダが見つかりません:\n{folderPath}",
+                    "引数エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // 引数2: LoRAモード（数字のみ）
+            if (args.Length >= 3 &&
+                int.TryParse(args[2], out int modeIdx) &&
+                modeIdx >= 0 && modeIdx < LoraModes.Length)
+            {
+                CmbLoraMode.SelectedIndex = modeIdx;
+            }
+
+            // 引数3: 一括挿入タグ（カンマ区切り）
+            List<string> insertTags = new List<string>();
+            if (args.Length >= 4 && !string.IsNullOrWhiteSpace(args[3]))
+            {
+                insertTags = args[3]
+                    .Split(',')
+                    .Select(t => t.Trim().ToLower().Replace(" ", "_"))
+                    .Where(t => !string.IsNullOrEmpty(t))
+                    .ToList();
+            }
+
+            await LoadFolderByPathAsync(folderPath);
+            await RunAutoTagAsync();
+
+            // タグ付け完了後に一括挿入
+            if (insertTags.Any())
+            {
+                var targets = _vm.Items.ToList();
+                foreach (var tag in insertTags)
+                    _vm.BulkInsertTag(tag, targets);
+                RebuildDisplayItems();
+                SetStatus($"挿入完了: {string.Join(", ", insertTags)}");
+            }
+
+            // 終了処理（Application.Shutdown で確実に終了）
+                await Task.Delay(500); // UI更新を待つ
+                Application.Current.Shutdown();
         }
 
         // ── GPU 可否チェック（DirectML版）──────────────────────────────
@@ -386,34 +461,28 @@ namespace TagFilter
             var dialog = new System.Windows.Forms.FolderBrowserDialog
             { Description = "画像フォルダを選択してください" };
             if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+            await LoadFolderByPathAsync(dialog.SelectedPath);
+        }
 
+        private async Task LoadFolderByPathAsync(string folderPath)
+        {
             SetStatus("読み込み中...");
             BtnOpenFolder.IsEnabled = false;
-
             try
             {
-                // OneDriveオンライン専用ファイルの警告
                 await Task.Run(() =>
                 {
-                    int onlineCount = 0;
-                    foreach (var f in System.IO.Directory.GetFiles(dialog.SelectedPath))
-                    {
-                        if (FileHelper.IsOnlineOnly(f)) onlineCount++;
-                    }
+                    int onlineCount = Directory.GetFiles(folderPath)
+                        .Count(f => FileHelper.IsOnlineOnly(f));
                     if (onlineCount > 0)
-                    {
-                        Dispatcher.Invoke(() =>
-                            MessageBox.Show(
-                                $"{onlineCount} 件のファイルがOneDriveのオンライン専用状態です。\n\n" +
-                                $"自動タグ付け前に全ファイルを右クリック→\n" +
-                                $"「常にこのデバイスに保存」でダウンロードしてください。",
-                                "OneDriveファイルの警告",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Warning));
-                    }
+                        Dispatcher.Invoke(() => MessageBox.Show(
+                            $"{onlineCount} 件のOneDriveオンライン専用ファイルがあります。\n" +
+                            "「常にこのデバイスに保存」を実行してください。",
+                            "OneDriveファイルの警告",
+                            MessageBoxButton.OK, MessageBoxImage.Warning));
                 });
 
-                await _vm.LoadFolderAsync(dialog.SelectedPath);
+                await _vm.LoadFolderAsync(folderPath);
                 await LoadThumbnailsAsync();
                 TxtImageCount.Text = $"{_vm.Items.Count} 件";
                 RebuildDisplayItems();
@@ -421,15 +490,10 @@ namespace TagFilter
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"フォルダ読み込みエラー:\n\n種類: {ex.GetType().Name}\nメッセージ: {ex.Message}\n\n{ex.StackTrace}",
+                MessageBox.Show($"フォルダ読み込みエラー:\n{ex.Message}",
                     "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
-                SetStatus("フォルダの読み込みに失敗しました");
             }
-            finally
-            {
-                BtnOpenFolder.IsEnabled = true;
-            }
+            finally { BtnOpenFolder.IsEnabled = true; }
         }
 
         private async Task LoadThumbnailsAsync()
@@ -457,6 +521,7 @@ namespace TagFilter
                     "サムネイル警告", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
+
 
         // ── 表示リスト再構築 ────────────────────────────────────────────
         private void RebuildDisplayItems()
@@ -754,18 +819,23 @@ namespace TagFilter
             }
             else
             {
-                try { _vm.ReloadWithDevice(device); }
-                catch (Exception ex)
+                // 変更後：デバイスが変わった時だけ再ロード
+                if (_vm.LastDevice != device)
                 {
-                    MessageBox.Show(ex.Message, "モデル再ロードエラー",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
+                    try { _vm.ReloadWithDevice(device); }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "モデル再ロードエラー",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
                 }
             }
 
 
 
-            // ── 以降は推論処理（前回と同じ）──────────────────────────────
+            // ── 以降は推論処理──────────────────────────────
+            /*
             var targets = GetTargetItems();
             if (!targets.Any()) { SetStatus("⚠ フォルダを開いてください"); return; }
 
@@ -813,8 +883,69 @@ namespace TagFilter
                 ProgressBar.Visibility = Visibility.Collapsed;
                 TxtProgress.Visibility = Visibility.Collapsed;
             }
+            */
+            await RunAutoTagAsync();
         }
 
+        private async Task RunAutoTagAsync()
+        {
+            var device = GetExecutionDevice();
+            var preset = GetSelectedPreset();
+
+            // モデルロード（未ロードの場合）
+            if (!_vm.IsTaggerReady || _vm.CurrentPreset != preset)
+            {
+                bool ok = await Task.Run(
+                    () => _vm.LoadModel(preset.OnnxPath, preset.CsvPath, device));
+                if (!ok) { SetStatus("モデルのロードに失敗しました"); return; }
+                UpdateModelStatus();
+            }
+
+            var targets = GetTargetItems();
+            if (!targets.Any()) return;
+
+            var keepCategories = GetSelectedLoraCategories();
+            bool useGpu = GetExecutionDevice() != ExecutionDevice.Cpu;
+            int parallel = useGpu ? 1 : GetParallelCount();
+            string deviceLabel = useGpu ? "DirectML" : "CPU";
+            string modeName = LoraModes[CmbLoraMode.SelectedIndex].Label;
+
+            BtnAutoTag.IsEnabled = false;
+            BtnOpenFolder.IsEnabled = false;
+            ImageList.IsEnabled = false;
+            ProgressBar.Visibility = Visibility.Visible;
+            TxtProgress.Visibility = Visibility.Visible;
+            ProgressBar.Maximum = targets.Count;
+            ProgressBar.Value = 0;
+
+            var progress = new Progress<int>(v =>
+            {
+                ProgressBar.Value = v;
+                TxtProgress.Text = $"{v} / {targets.Count}";
+                SetStatus($"推論中 [{deviceLabel} x{parallel}] {v}/{targets.Count} 枚");
+            });
+
+            try
+            {
+                await _vm.BatchTagAsync(targets, (float)SliderThreshold.Value,
+                    progress, keepCategories, parallel);
+                RebuildDisplayItems();
+                SetStatus($"完了: [{modeName} / {deviceLabel} x{parallel}] {targets.Count} 枚");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"推論エラー:\n{ex.Message}", "エラー",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                BtnAutoTag.IsEnabled = true;
+                BtnOpenFolder.IsEnabled = true;
+                ImageList.IsEnabled = true;
+                ProgressBar.Visibility = Visibility.Collapsed;
+                TxtProgress.Visibility = Visibility.Collapsed;
+            }
+        }
 
         private async Task ManualLoadModelAsync(ExecutionDevice device)
         {

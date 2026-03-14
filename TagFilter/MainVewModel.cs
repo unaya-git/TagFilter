@@ -90,6 +90,8 @@ namespace TagFilter
         }
 
 
+        public ExecutionDevice LastDevice { get; private set; } = ExecutionDevice.Auto;
+
         public bool LoadModel(string modelPath, string csvPath,
                               ExecutionDevice device = ExecutionDevice.Auto)
         {
@@ -98,6 +100,7 @@ namespace TagFilter
                 _tagger?.Dispose();
                 _lastModelPath = modelPath;
                 _lastCsvPath = csvPath;
+                LastDevice = device;  // ← 追加
                 _tagger = new WD14TaggerService(modelPath, csvPath, device);
                 return true;
             }
@@ -110,19 +113,18 @@ namespace TagFilter
             try
             {
                 var old = _tagger;
-                _tagger = null;          // 先にnullにしてから
-                old?.Dispose();          // 破棄
+                _tagger = null;
+                old?.Dispose();
                 _tagger = new WD14TaggerService(_lastModelPath, _lastCsvPath, device);
+                LastDevice = device;  // ← 追加
             }
             catch (Exception ex)
             {
-                _tagger = null;          // 失敗時は確実にnullに
+                _tagger = null;
                 throw new InvalidOperationException(
                     $"モデルの再ロードに失敗しました:\n{ex.Message}", ex);
             }
         }
-
-
 
         public async Task LoadFolderAsync(string folderPath)
         {
@@ -240,5 +242,7 @@ namespace TagFilter
                 item.SaveTagsToFile();
             }
         }
+
     }
+
 }
