@@ -156,6 +156,8 @@ Uses WD14 Tagger models published by [SmilingWolf](https://huggingface.co/Smilin
 
 [MIT License](LICENSE.txt)
 
+---
+
 ## Disclaimer
 This tool is for personal dataset management only.
 Users are responsible for ensuring their use of this tool
