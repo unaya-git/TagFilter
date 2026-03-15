@@ -157,3 +157,10 @@ TagFilter.exe "E:\dataset\chara_C" 2
 [MIT License](LICENSE.txt)
 
 使用ライブラリ：[Microsoft.ML.OnnxRuntime.DirectML](https://github.com/microsoft/onnxruntime)（MIT）／[OpenCvSharp4](https://github.com/shimat/opencvsharp)（Apache 2.0）／[Costura.Fody](https://github.com/Fody/Costura)（MIT）
+
+## 免責事項
+本ツールは個人データセットの管理のみを目的としています。
+
+ユーザーは、本ツールの使用が適用される法令および第三者の権利を遵守していることを確認する責任を負います。
+
+作者は、いかなる不正使用についても責任を負いません。
