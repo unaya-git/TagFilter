@@ -156,4 +156,10 @@ Uses WD14 Tagger models published by [SmilingWolf](https://huggingface.co/Smilin
 
 [MIT License](LICENSE.txt)
 
+## Disclaimer
+This tool is for personal dataset management only.
+Users are responsible for ensuring their use of this tool
+complies with applicable laws and third-party rights.
+The author is not responsible for any misuse.
+
 Libraries: [Microsoft.ML.OnnxRuntime.DirectML](https://github.com/microsoft/onnxruntime) (MIT) / [OpenCvSharp4](https://github.com/shimat/opencvsharp) (Apache 2.0) / [Costura.Fody](https://github.com/Fody/Costura) (MIT)
