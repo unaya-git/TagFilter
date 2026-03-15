@@ -8,11 +8,13 @@ namespace TagFilter
     [XmlRoot("AppSettings")]
     public class AppSettings
     {
+        public string Language { get; set; } = "Japanese";
         public int ModelIndex { get; set; } = 0;
         public int DeviceIndex { get; set; } = 0;
         public int ParallelCount { get; set; } = 1;
         public int LoraModeIndex { get; set; } = 0;
         public double Threshold { get; set; } = 0.35;
+        public bool UseUnderscores { get; set; } = true;  // デフォルト: _ あり（安全側）
 
         [XmlArray("UnwantedTags")]
         [XmlArrayItem("Tag")]
@@ -22,16 +24,30 @@ namespace TagFilter
         private static readonly string SettingsPath =
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.xml");
 
+        // 他クラスから参照できるよう静的プロパティを追加
+        public static AppSettings Current { get; private set; } = new AppSettings();
+
         public static AppSettings Load()
         {
-            if (!File.Exists(SettingsPath)) return new AppSettings();
+            if (!File.Exists(SettingsPath))
+            {
+                Current = new AppSettings();  
+                return Current;
+            }
             try
             {
                 var xs = new XmlSerializer(typeof(AppSettings));
                 using (var fs = File.OpenRead(SettingsPath))
-                    return (AppSettings)xs.Deserialize(fs);
+                {
+                    Current = (AppSettings)xs.Deserialize(fs); 
+                    return Current;
+                }
             }
-            catch { return new AppSettings(); }
+            catch
+            {
+                Current = new AppSettings();  
+                return Current;
+            }
         }
 
         public void Save()

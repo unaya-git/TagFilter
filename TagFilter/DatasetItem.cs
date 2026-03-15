@@ -107,8 +107,16 @@ namespace TagFilter{
 
         public void SaveTagsToFile()
         {
+            var tagLine = string.Join(", ", Tags.Select(t =>
+            {
+                // AppSettings の UseUnderscores に従って変換
+                var name = t.Name;
+                if (!AppSettings.Current.UseUnderscores)
+                    name = name.Replace("_", " ");
+                return name;
+            }));
+            File.WriteAllText(TxtPath, tagLine, System.Text.Encoding.UTF8);
             // タグが0件でもファイルは作成（空ファイル）
-            File.WriteAllText(TxtPath, TagsAsText);
         }
 
         // タグが存在するか確認

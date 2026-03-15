@@ -111,6 +111,7 @@
     <Compile Include="FileHelper.cs" />
     <Compile Include="MainVewModel.cs" />
     <Compile Include="Polyfill.cs" />
+    <Compile Include="String.cs" />
     <Compile Include="TagClassifier.cs" />
     <Compile Include="TagViewModel.cs" />
     <Compile Include="ThumbnailLoader.cs" />

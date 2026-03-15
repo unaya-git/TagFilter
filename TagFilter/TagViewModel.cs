@@ -25,6 +25,10 @@ namespace TagFilter
             set { _category = value; OnPropertyChanged(); }
         }
 
+        public string DisplayName => AppSettings.Current.UseUnderscores
+            ? Name
+            : Name.Replace("_", " ");
+
         // スコアなしで手動追加する場合用
         public TagViewModel(string name)
         {

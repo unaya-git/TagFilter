@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,7 +10,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.IO;
+using System.Xml.XPath;
 
 namespace TagFilter
 {
@@ -47,7 +48,6 @@ namespace TagFilter
         private readonly ObservableCollection<DatasetItemView> _displayItems
             = new ObservableCollection<DatasetItemView>();
 
-        // 並列数の上限（GPU/CPU で変える）
         private int _maxParallel = 1;
 
         private static readonly (string Label, BodyPartCategory? Category)[] LoraModes =
@@ -61,35 +61,15 @@ namespace TagFilter
             ("スタイル LoRA",         BodyPartCategory.Style),
             ("表現 LoRA",             BodyPartCategory.Expression),
             ("作者名",                BodyPartCategory.Artist),
-            ("キャラクター",          BodyPartCategory.Character),  
-            ("作品名",                BodyPartCategory.Copyright), 
-
-        };
-
-        private static readonly Dictionary<BodyPartCategory, string> CategoryLabels =
-            new Dictionary<BodyPartCategory, string>
-        {
-    { BodyPartCategory.Face,       "顔" },
-    { BodyPartCategory.Body,       "体" },
-    { BodyPartCategory.Outfit,     "服装" },
-    { BodyPartCategory.Pose,       "ポーズ" },
-    { BodyPartCategory.Background, "背景" },
-    { BodyPartCategory.Style,      "スタイル" },
-    { BodyPartCategory.Expression, "表現" },
-    { BodyPartCategory.Artist,     "作者"       },
-    { BodyPartCategory.Copyright,  "作品名"     },
-    { BodyPartCategory.Character,  "キャラ"     },
-    { BodyPartCategory.Other,      "その他" },
+            ("キャラクター",          BodyPartCategory.Character),
+            ("作品名",                BodyPartCategory.Copyright),
         };
 
         public MainWindow()
         {
             InitializeComponent();
 
-            // 設定をロード
             _settings = AppSettings.Load();
-
-            // 万一設定ファイルに重複が入っていた場合の保険
             _settings.UnwantedTags = _settings.UnwantedTags
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -97,7 +77,20 @@ namespace TagFilter
             ImageList.ItemsSource = _vm.Items;
             AllItemsListView.ItemsSource = _displayItems;
 
-            // 設定から復元
+            // 言語設定を復元
+            if (_settings.Language == "English")
+            {
+                Strings.Language = AppLanguage.English;
+                BtnLanguage.IsChecked = true;
+                BtnLanguage.Content = "JP";
+            }
+            // アンダースコア設定を復元
+            BtnUnderscore.IsChecked = _settings.UseUnderscores;
+            BtnUnderscore.Content = _settings.UseUnderscores
+                ? Strings.BtnUnderscoreOn : Strings.BtnUnderscoreOff;
+
+            ApplyLocale();
+
             CmbDevice.SelectedIndex = Math.Min(_settings.DeviceIndex, 2);
             SliderThreshold.Value = Math.Max(0.1, Math.Min(0.9, _settings.Threshold));
             SetParallelCount(_settings.ParallelCount);
@@ -108,31 +101,32 @@ namespace TagFilter
             RebuildUnwantedTagChips();
 
             Closing += MainWindow_Closing;
-            //Loaded += async (_, __) => await CheckGpuAsync();
             Loaded += async (_, __) =>
             {
                 await CheckGpuAsync();
                 await HandleCommandLineArgsAsync();
             };
+
+            //SetStatus(Strings.StatusReady);
         }
 
-        // ウィンドウ終了時に保存
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            _settings.Language = Strings.Language == AppLanguage.English ? "English" : "Japanese";
             _settings.ModelIndex = CmbModel.SelectedIndex;
             _settings.DeviceIndex = CmbDevice.SelectedIndex;
             _settings.ParallelCount = GetParallelCount();
             _settings.LoraModeIndex = CmbLoraMode.SelectedIndex;
             _settings.Threshold = SliderThreshold.Value;
+            _settings.UseUnderscores = BtnUnderscore.IsChecked == true;
             _settings.Save();
         }
 
-        // ドラッグアンドドロップ対応
+        // ── ドラッグ&ドロップ ───────────────────────────────────────────
         private void Window_DragOver(object sender, DragEventArgs e)
         {
             e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
-                ? DragDropEffects.Copy
-                : DragDropEffects.None;
+                ? DragDropEffects.Copy : DragDropEffects.None;
             e.Handled = true;
         }
 
@@ -145,8 +139,104 @@ namespace TagFilter
             await LoadFolderByPathAsync(folder);
         }
 
+        // ── 言語切替 ────────────────────────────────────────────────────
+        private void BtnLanguage_Click(object sender, RoutedEventArgs e)
+        {
+            if (Strings.Language == AppLanguage.Japanese)
+            {
+                Strings.Language = AppLanguage.English;
+                BtnLanguage.Content = "JP";
+            }
+            else
+            {
+                Strings.Language = AppLanguage.Japanese;
+                BtnLanguage.Content = "EN";
+            }
+            ApplyLocale();
+        }
 
-        // ---- コマンドライン引数処理 ----
+        private void ApplyLocale()
+        {
+            // ── ツールバー ──
+            BtnOpenFolder.Content = Strings.BtnOpenFolder;
+            BtnSaveAll.Content = Strings.BtnSaveAll;
+            BtnAutoTag.Content = Strings.BtnAutoTag;
+
+            // デバイス選択（インデックス保持）
+            int devIdx = CmbDevice.SelectedIndex;
+            CmbDevice.Items.Clear();
+            CmbDevice.Items.Add(Strings.DeviceAuto);
+            CmbDevice.Items.Add(Strings.DeviceGpu);
+            CmbDevice.Items.Add(Strings.DeviceCpu);
+            CmbDevice.SelectedIndex = devIdx >= 0 ? devIdx : 0;
+
+            // LoRAモード（インデックス保持）
+            int loraIdx = CmbLoraMode.SelectedIndex;
+            CmbLoraMode.Items.Clear();
+            foreach (var label in Strings.LoraModeLabels)
+                CmbLoraMode.Items.Add(label);
+            CmbLoraMode.SelectedIndex = loraIdx >= 0 ? loraIdx : 0;
+
+            // ── タグ集計パネル ──
+            SortByCount.Content = Strings.SortByCount;
+            SortByName.Content = Strings.SortByName;
+            BtnDeleteSelectedSummaryTag.Content = Strings.BtnDeleteSelectedDefault;
+
+            // ── 表示フィルタ ──
+            FilterAll.Content = Strings.FilterAll;
+            FilterFace.Content = Strings.FilterFace;
+            FilterBody.Content = Strings.FilterBody;
+            FilterOutfit.Content = Strings.FilterOutfit;
+            FilterPose.Content = Strings.FilterPose;
+            FilterBg.Content = Strings.FilterBackground;
+            FilterStyle.Content = Strings.FilterStyle;
+            FilterExpression.Content = Strings.FilterExpression;
+            FilterCharacter.Content = Strings.FilterCharacter;
+            FilterCopyright.Content = Strings.FilterCopyright;
+            FilterArtist.Content = Strings.FilterArtist;
+            FilterOther.Content = Strings.FilterOther;
+
+            // ── 一括操作 ──
+            BtnBulkInsert.Content = Strings.BtnInsert;
+            BtnBulkDeleteCategory.Content = Strings.BtnDeleteCategoryDefault;
+            BtnAddUnwantedTag.Content = Strings.BtnRegister;
+            BtnBulkDeleteTag.Content = Strings.BtnDeleteAllTag;
+
+            // ── タグ追加 ──
+            BtnAddTag.Content = Strings.BtnAdd;
+
+            // ── ラベル ──
+            LblThreshold.Text = Strings.LblThreshold;
+            LblModel.Text = Strings.LblModel;
+            LblInfer.Text = Strings.LblInfer;
+            LblDevice.Text = Strings.LblDevice;
+            LblParallel.Text = Strings.LblParallel;
+            LblTagSummary.Text = Strings.LblTagSummary;
+            LblSortOrder.Text = Strings.LblSortOrder;
+            LblFilter.Text = Strings.LblFilter;
+            LblBulkInsert.Text = Strings.LblBulkInsert;
+            LblUnwantedTag.Text = Strings.LblUnwantedTag;
+            LblAddTag.Text = Strings.LblAddTag;
+
+            // モデル名（インデックス保持）
+            int modelIdx = CmbModel.SelectedIndex;
+            CmbModel.Items.Clear();
+            foreach (var name in Strings.ModelNames)
+                CmbModel.Items.Add(name);
+            CmbModel.SelectedIndex = modelIdx >= 0 ? modelIdx : 0;
+
+            // ── アンダースコアボタン ──
+            BtnUnderscore.Content = (BtnUnderscore.IsChecked == true)
+                ? Strings.BtnUnderscoreOn : Strings.BtnUnderscoreOff;
+
+            // ── ステータスバー ──
+            SetStatus(Strings.StatusReady);
+
+            UpdateModelStatus();
+            UpdateDeleteButton();
+        }
+
+        // ── コマンドライン引数処理 ──────────────────────────────────────
         private async Task HandleCommandLineArgsAsync()
         {
             var args = Environment.GetCommandLineArgs();
@@ -155,8 +245,8 @@ namespace TagFilter
             string folderPath = args[1];
             if (!Directory.Exists(folderPath))
             {
-                MessageBox.Show($"フォルダが見つかりません:\n{folderPath}",
-                    "引数エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"{Strings.MsgFolderNotFound}\n{folderPath}",
+                    Strings.MsgArgError, MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -182,48 +272,42 @@ namespace TagFilter
             await LoadFolderByPathAsync(folderPath);
             await RunAutoTagAsync();
 
-            // タグ付け完了後に一括挿入
             if (insertTags.Any())
             {
                 var targets = _vm.Items.ToList();
                 foreach (var tag in insertTags)
                     _vm.BulkInsertTag(tag, targets);
                 RebuildDisplayItems();
-                SetStatus($"挿入完了: {string.Join(", ", insertTags)}");
+                SetStatus(Strings.StatusInsertDone(string.Join(", ", insertTags)));
             }
 
-            // 終了処理（Application.Shutdown で確実に終了）
-                await Task.Delay(500); // UI更新を待つ
-                Application.Current.Shutdown();
+            await Task.Delay(500);
+            Application.Current.Shutdown();
         }
 
-        // ── GPU 可否チェック（DirectML版）──────────────────────────────
+        // ── GPU 可否チェック ────────────────────────────────────────────
         private async Task CheckGpuAsync()
         {
-            SetGpuStatus("確認中...", "#6C7086");
+            SetGpuStatus(Strings.GpuChecking, "#6C7086");
             _gpuAvailable = await Task.Run(() => WD14TaggerService.IsDirectMLAvailable());
 
             if (_gpuAvailable)
             {
-                SetGpuStatus("GPU(DirectML) 使用可", "#A6E3A1");
-                if (CmbDevice.SelectedIndex <= 1)
-                    SetParallelCount(1);
+                SetGpuStatus(Strings.GpuAvailable, "#A6E3A1");
+                if (CmbDevice.SelectedIndex <= 1) SetParallelCount(1);
             }
             else
             {
-                SetGpuStatus("CPU のみ", "#F38BA8");
-                if (CmbDevice.SelectedIndex == 1)
-                    CmbDevice.SelectedIndex = 0;
+                SetGpuStatus(Strings.GpuCpuOnly, "#F38BA8");
+                if (CmbDevice.SelectedIndex == 1) CmbDevice.SelectedIndex = 0;
                 SetParallelCount(Math.Max(1, Environment.ProcessorCount / 2));
             }
         }
 
-
         private void SetGpuStatus(string text, string hexColor)
         {
             var color = (Color)ColorConverter.ConvertFromString(hexColor);
-            GpuIndicator.Background = new SolidColorBrush(
-                Color.FromArgb(60, color.R, color.G, color.B));
+            GpuIndicator.Background = new SolidColorBrush(Color.FromArgb(60, color.R, color.G, color.B));
             GpuIndicator.BorderBrush = new SolidColorBrush(color);
             GpuIndicator.BorderThickness = new Thickness(1);
             TxtGpuStatus.Text = text;
@@ -234,16 +318,10 @@ namespace TagFilter
         private void CmbDevice_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (TxtParallel == null) return;
-
             switch (CmbDevice.SelectedIndex)
             {
-                case 0: // 自動
-                case 1: // GPU
-                    SetParallelCount(1);
-                    break;
-                case 2: // CPU
-                    SetParallelCount(Math.Max(1, Environment.ProcessorCount / 2));
-                    break;
+                case 0: case 1: SetParallelCount(1); break;
+                case 2: SetParallelCount(Math.Max(1, Environment.ProcessorCount / 2)); break;
             }
         }
 
@@ -251,23 +329,19 @@ namespace TagFilter
         private void SetParallelCount(int value)
         {
             _maxParallel = Math.Max(1, value);
-            if (TxtParallel != null)
-                TxtParallel.Text = _maxParallel.ToString();
+            if (TxtParallel != null) TxtParallel.Text = _maxParallel.ToString();
         }
 
         private int GetParallelCount()
         {
-            if (int.TryParse(TxtParallel.Text, out int v) && v >= 1)
-                return v;
+            if (int.TryParse(TxtParallel.Text, out int v) && v >= 1) return v;
             return 1;
         }
 
         private void BtnParallelMinus_Click(object sender, RoutedEventArgs e)
             => SetParallelCount(GetParallelCount() - 1);
-
         private void BtnParallelPlus_Click(object sender, RoutedEventArgs e)
             => SetParallelCount(GetParallelCount() + 1);
-
         private void TxtParallel_PreviewTextInput(object sender, TextCompositionEventArgs e)
             => e.Handled = !e.Text.All(char.IsDigit);
 
@@ -278,20 +352,16 @@ namespace TagFilter
             {
                 case 1: return ExecutionDevice.Gpu;
                 case 2: return ExecutionDevice.Cpu;
-                default: // 自動
-                    return _gpuAvailable ? ExecutionDevice.Gpu : ExecutionDevice.Cpu;
+                default: return _gpuAvailable ? ExecutionDevice.Gpu : ExecutionDevice.Cpu;
             }
         }
 
-        // ── ComboBox 初期化 ─────────────────────────────────────────────
         // ── モデル選択 ──────────────────────────────────────────────────
         private void InitModelComboBox()
         {
-            foreach (var preset in WD14ModelPreset.All)
-                CmbModel.Items.Add(preset.Name);
-            // 保存済みインデックスで復元（範囲チェックあり）
-            CmbModel.SelectedIndex = Math.Min(
-                _settings.ModelIndex, WD14ModelPreset.All.Length - 1);
+            foreach (var name in Strings.ModelNames)   // ← presetのNameではなくStrings.ModelNamesを使う
+                CmbModel.Items.Add(name);
+            CmbModel.SelectedIndex = Math.Min(_settings.ModelIndex, WD14ModelPreset.All.Length - 1);
             UpdateModelStatus();
         }
 
@@ -300,51 +370,43 @@ namespace TagFilter
             var idx = CmbModel.SelectedIndex;
             if (idx < 0 || idx >= WD14ModelPreset.All.Length) return;
             var preset = WD14ModelPreset.All[idx];
-
             bool downloaded = File.Exists(preset.OnnxPath) && File.Exists(preset.CsvPath);
             bool isCurrent = _vm.CurrentPreset == preset;
 
             if (isCurrent && downloaded)
             {
-                TxtModelStatus.Text = "使用中";
+                TxtModelStatus.Text = Strings.ModelInUse;
                 SetIndicatorColor(ModelStatusIndicator, TxtModelStatus, "#A6E3A1");
             }
             else if (downloaded)
             {
-                TxtModelStatus.Text = "DL済";
+                TxtModelStatus.Text = Strings.ModelDownloaded;
                 SetIndicatorColor(ModelStatusIndicator, TxtModelStatus, "#89B4FA");
             }
             else
             {
-                TxtModelStatus.Text = "未DL";
+                TxtModelStatus.Text = Strings.ModelNotDL;
                 SetIndicatorColor(ModelStatusIndicator, TxtModelStatus, "#6C7086");
             }
-
-            // ツールチップに説明を表示
             CmbModel.ToolTip = preset.Description;
         }
 
         private void SetIndicatorColor(Border border, TextBlock text, string hexColor)
         {
-            var color = (System.Windows.Media.Color)
-                System.Windows.Media.ColorConverter.ConvertFromString(hexColor);
-            border.Background = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromArgb(60, color.R, color.G, color.B));
-            border.BorderBrush = new System.Windows.Media.SolidColorBrush(color);
+            var color = (Color)ColorConverter.ConvertFromString(hexColor);
+            border.Background = new SolidColorBrush(Color.FromArgb(60, color.R, color.G, color.B));
+            border.BorderBrush = new SolidColorBrush(color);
             border.BorderThickness = new Thickness(1);
-            text.Foreground = new System.Windows.Media.SolidColorBrush(color);
+            text.Foreground = new SolidColorBrush(color);
         }
 
         private void CmbModel_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            UpdateModelStatus();
-        }
+            => UpdateModelStatus();
 
         private WD14ModelPreset GetSelectedPreset()
         {
             int idx = CmbModel.SelectedIndex;
-            if (idx < 0 || idx >= WD14ModelPreset.All.Length)
-                return WD14ModelPreset.All[0];
+            if (idx < 0 || idx >= WD14ModelPreset.All.Length) return WD14ModelPreset.All[0];
             return WD14ModelPreset.All[idx];
         }
 
@@ -352,8 +414,7 @@ namespace TagFilter
         {
             foreach (var mode in LoraModes)
                 CmbLoraMode.Items.Add(mode.Label);
-            CmbLoraMode.SelectedIndex = Math.Min(
-                _settings.LoraModeIndex, LoraModes.Length - 1);
+            CmbLoraMode.SelectedIndex = Math.Min(_settings.LoraModeIndex, LoraModes.Length - 1);
         }
 
         private void RegisterFilterEvents()
@@ -366,7 +427,6 @@ namespace TagFilter
         }
 
         // ── 不要タグチップ ──────────────────────────────────────────────
-
         private void RebuildUnwantedTagChips()
         {
             UnwantedTagsPanel.Children.Clear();
@@ -376,41 +436,29 @@ namespace TagFilter
 
         private UIElement CreateUnwantedTagChip(string tagName)
         {
-            // クリックでTxtDeleteTagにセット、[×]で登録削除
             var border = new Border
             {
-                Background = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter
-                        .ConvertFromString("#313149")),
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#313149")),
                 CornerRadius = new CornerRadius(10),
                 Padding = new Thickness(8, 3, 6, 3),
                 Margin = new Thickness(0, 0, 4, 3),
                 Cursor = Cursors.Hand,
             };
-
             var panel = new StackPanel { Orientation = Orientation.Horizontal };
 
             var label = new TextBlock
             {
                 Text = tagName,
-                Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter
-                        .ConvertFromString("#CDD6F4")),
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CDD6F4")),
                 FontSize = 11,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            label.MouseLeftButtonDown += (s, e) =>
-            {
-                TxtDeleteTag.Text = tagName;
-                e.Handled = true;
-            };
+            label.MouseLeftButtonDown += (s, e) => { TxtDeleteTag.Text = tagName; e.Handled = true; };
 
             var close = new TextBlock
             {
                 Text = " ×",
-                Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter
-                        .ConvertFromString("#F38BA8")),
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F38BA8")),
                 FontSize = 11,
                 VerticalAlignment = VerticalAlignment.Center,
                 Cursor = Cursors.Hand,
@@ -426,47 +474,36 @@ namespace TagFilter
             panel.Children.Add(label);
             panel.Children.Add(close);
             border.Child = panel;
-
-            // チップ全体クリックでもTxtDeleteTagにセット
-            border.MouseLeftButtonDown += (s, e) =>
-            {
-                TxtDeleteTag.Text = tagName;
-            };
-
+            border.MouseLeftButtonDown += (s, e) => { TxtDeleteTag.Text = tagName; };
             return border;
         }
 
-        // 登録ボタン
         private void BtnAddUnwantedTag_Click(object sender, RoutedEventArgs e)
         {
             var tag = TxtDeleteTag.Text.Trim();
             if (string.IsNullOrEmpty(tag)) return;
-
-            // 重複チェック
             if (_settings.UnwantedTags.Contains(tag, StringComparer.OrdinalIgnoreCase))
             {
                 TxtDeleteTag.Clear();
                 return;
             }
-
             _settings.UnwantedTags.Add(tag);
             TxtDeleteTag.Clear();
             RebuildUnwantedTagChips();
         }
 
-
         // ── フォルダを開く ──────────────────────────────────────────────
         private async void BtnOpenFolder_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new System.Windows.Forms.FolderBrowserDialog
-            { Description = "画像フォルダを選択してください" };
+            { Description = Strings.BtnOpenFolder };
             if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
             await LoadFolderByPathAsync(dialog.SelectedPath);
         }
 
         private async Task LoadFolderByPathAsync(string folderPath)
         {
-            SetStatus("読み込み中...");
+            SetStatus(Strings.StatusLoading);
             BtnOpenFolder.IsEnabled = false;
             try
             {
@@ -476,9 +513,8 @@ namespace TagFilter
                         .Count(f => FileHelper.IsOnlineOnly(f));
                     if (onlineCount > 0)
                         Dispatcher.Invoke(() => MessageBox.Show(
-                            $"{onlineCount} 件のOneDriveオンライン専用ファイルがあります。\n" +
-                            "「常にこのデバイスに保存」を実行してください。",
-                            "OneDriveファイルの警告",
+                            Strings.MsgOneDrive(onlineCount),
+                            Strings.MsgOneDriveTitle,
                             MessageBoxButton.OK, MessageBoxImage.Warning));
                 });
 
@@ -486,12 +522,12 @@ namespace TagFilter
                 await LoadThumbnailsAsync();
                 TxtImageCount.Text = $"{_vm.Items.Count} 件";
                 RebuildDisplayItems();
-                SetStatus($"{_vm.Items.Count} 件の画像を読み込みました");
+                SetStatus(Strings.StatusLoaded(_vm.Items.Count));
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"フォルダ読み込みエラー:\n{ex.Message}",
-                    "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"{Strings.MsgFolderLoadError}\n{ex.Message}",
+                    Strings.MsgError, MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally { BtnOpenFolder.IsEnabled = true; }
         }
@@ -510,18 +546,13 @@ namespace TagFilter
                 }
                 catch (Exception ex)
                 {
-                    errors.AppendLine($"{System.IO.Path.GetFileName(path)}: {ex.GetType().Name} - {ex.Message}");
+                    errors.AppendLine($"{Path.GetFileName(path)}: {ex.GetType().Name} - {ex.Message}");
                 }
             }
-
             if (errors.Length > 0)
-            {
-                MessageBox.Show(
-                    $"以下の画像でサムネイル生成に失敗しました:\n\n{errors}",
-                    "サムネイル警告", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
+                MessageBox.Show(Strings.MsgThumbnailFailed + errors,
+                    Strings.MsgThumbnailWarning, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
-
 
         // ── 表示リスト再構築 ────────────────────────────────────────────
         private void RebuildDisplayItems()
@@ -529,7 +560,6 @@ namespace TagFilter
             _displayItems.Clear();
             foreach (var item in _vm.Items)
                 _displayItems.Add(new DatasetItemView(item, _activeFilter));
-
             RebuildTagSummary();
         }
 
@@ -539,9 +569,6 @@ namespace TagFilter
             _displayItems.Clear();
             foreach (var item in items)
                 _displayItems.Add(new DatasetItemView(item, _activeFilter));
-
-            // ※ ReapplyFilter は頻繁に呼ばれるため、
-            //    タグ削除・追加時のみ集計更新したい場合は呼び出し元で制御してください
         }
 
         // ── 画像選択 ────────────────────────────────────────────────────
@@ -588,7 +615,6 @@ namespace TagFilter
                         FilterAll.IsChecked = true;
                     }
                 }
-
                 UpdateDeleteButton();
                 ReapplyFilter();
             }
@@ -597,14 +623,15 @@ namespace TagFilter
 
         private void UpdateDeleteButton()
         {
-            if (_activeFilter.HasValue && CategoryLabels.TryGetValue(_activeFilter.Value, out var label))
+            if (_activeFilter.HasValue &&
+                Strings.CategoryLabels.TryGetValue(_activeFilter.Value, out var label))
             {
-                BtnBulkDeleteCategory.Content = $"「{label}」タグを全削除";
+                BtnBulkDeleteCategory.Content = Strings.BtnDeleteCategoryLabel(label);
                 BtnBulkDeleteCategory.IsEnabled = true;
             }
             else
             {
-                BtnBulkDeleteCategory.Content = "選択中カテゴリを削除";
+                BtnBulkDeleteCategory.Content = Strings.BtnDeleteCategoryDefault;
                 BtnBulkDeleteCategory.IsEnabled = false;
             }
         }
@@ -634,12 +661,12 @@ namespace TagFilter
 
         private void AddTagFromInput()
         {
-            if (_currentItem == null) { SetStatus("⚠ 左の一覧から画像を選択してください"); return; }
+            if (_currentItem == null) { SetStatus(Strings.StatusNoImage); return; }
             var tagName = TxtNewTag.Text.Trim().ToLower().Replace(" ", "_");
             if (string.IsNullOrEmpty(tagName)) return;
             if (_currentItem.HasTag(tagName))
             {
-                SetStatus($"「{tagName}」は既に存在します");
+                SetStatus(Strings.StatusTagExists(tagName));
                 TxtNewTag.SelectAll();
                 return;
             }
@@ -648,7 +675,7 @@ namespace TagFilter
             _currentItem.SaveTagsToFile();
             ReapplyFilter();
             RebuildTagSummary();
-            SetStatus($"追加: {tagName}  ({_currentItem.TagCount} tags)");
+            SetStatus(Strings.StatusTagAdded(tagName, _currentItem.TagCount));
             TxtNewTag.Clear();
             TxtNewTag.Focus();
         }
@@ -683,13 +710,14 @@ namespace TagFilter
         private void DoBulkInsert()
         {
             var tagName = TxtBulkTag.Text.Trim().ToLower().Replace(" ", "_");
-            if (string.IsNullOrEmpty(tagName)) { SetStatus("⚠ 挿入するタグを入力してください"); return; }
+            if (string.IsNullOrEmpty(tagName)) { SetStatus(Strings.StatusNoTagInput); return; }
             var targets = GetTargetItems();
             _vm.BulkInsertTag(tagName, targets);
             ReapplyFilter();
             string scope = ImageList.SelectedItems.Count > 0
-                ? $"選択中 {targets.Count} 枚" : $"全 {targets.Count} 枚";
-            SetStatus($"「{tagName}」を {scope} に挿入しました");
+                ? Strings.ScopeSelected(targets.Count)
+                : Strings.ScopeAll(targets.Count);
+            SetStatus(Strings.StatusInserted(tagName, scope));
             TxtBulkTag.Clear();
         }
 
@@ -697,17 +725,19 @@ namespace TagFilter
         private void BtnBulkDeleteCategory_Click(object sender, RoutedEventArgs e)
         {
             if (!_activeFilter.HasValue) return;
-            CategoryLabels.TryGetValue(_activeFilter.Value, out var label);
+            Strings.CategoryLabels.TryGetValue(_activeFilter.Value, out var label);
             var targets = GetTargetItems();
             string scope = ImageList.SelectedItems.Count > 0
-                ? $"選択中 {targets.Count} 枚" : $"全 {targets.Count} 枚";
+                ? Strings.ScopeSelected(targets.Count)
+                : Strings.ScopeAll(targets.Count);
             var result = MessageBox.Show(
-                $"{scope} の画像から\n「{label}」カテゴリのタグを全て削除します。\n\nよろしいですか？",
-                "一括削除の確認", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+                Strings.MsgBulkDeleteCategory(scope, label),
+                Strings.MsgBulkDeleteTitle,
+                MessageBoxButton.OKCancel, MessageBoxImage.Warning);
             if (result != MessageBoxResult.OK) return;
             _vm.BulkDeleteByCategory(_activeFilter.Value, targets);
             ReapplyFilter();
-            SetStatus($"「{label}」タグを {scope} から削除しました");
+            SetStatus(Strings.StatusCategoryDeleted(label, scope));
         }
 
         private List<DatasetItem> GetTargetItems()
@@ -721,7 +751,7 @@ namespace TagFilter
         {
             int count = 0;
             foreach (var item in _vm.Items) { item.SaveTagsToFile(); count++; }
-            SetStatus($"全 {count} 件を保存しました");
+            SetStatus(Strings.StatusSavedAll(count));
         }
 
         // ── 自動タグ付け ────────────────────────────────────────────────
@@ -739,24 +769,18 @@ namespace TagFilter
         {
             var device = GetExecutionDevice();
             var preset = GetSelectedPreset();
-
-            // 選択中モデルが未ロード or 別モデルに切り替わった場合
+            string localModelName = Strings.ModelNames[CmbModel.SelectedIndex];
             bool needLoad = !_vm.IsTaggerReady || _vm.CurrentPreset != preset;
 
             if (needLoad)
             {
-                bool modelExists = File.Exists(preset.OnnxPath)
-                                && File.Exists(preset.CsvPath);
-
+                bool modelExists = File.Exists(preset.OnnxPath) && File.Exists(preset.CsvPath);
                 if (!modelExists)
                 {
                     var dlgResult = MessageBox.Show(
-                        $"モデル「{preset.Name}」がダウンロードされていません。\n\n" +
-                        $"Hugging Face から自動ダウンロードしますか？\n" +
-                        $"（約350〜700MB）",
-                        "モデルが未ダウンロード",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Question);
+                        Strings.MsgDownload(localModelName),
+                        Strings.MsgDownloadTitle,
+                        MessageBoxButton.YesNo, MessageBoxImage.Question);
                     if (dlgResult != MessageBoxResult.Yes) return;
 
                     BtnAutoTag.IsEnabled = false;
@@ -770,21 +794,21 @@ namespace TagFilter
                     {
                         ProgressBar.Value = p.Ratio * 100;
                         TxtProgress.Text = $"{p.Ratio:P0}";
-                        SetStatus($"{p.Message}");
+                        SetStatus(p.Message);
                     });
 
                     try
                     {
                         bool ok = await _vm.EnsureAndLoadModelAsync(
                             preset, device, dlProgress, _downloadCts.Token);
-                        if (!ok) { SetStatus("モデルのロードに失敗しました"); return; }
-                        SetStatus($"「{preset.Name}」のロード完了");
+                        if (!ok) { SetStatus(Strings.StatusModelFailed); return; }
+                        SetStatus(Strings.StatusModelLoaded(localModelName));
                         UpdateModelStatus();
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show($"ダウンロードに失敗しました:\n{ex.Message}",
-                            "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show($"{Strings.MsgDownloadFailed}\n{ex.Message}",
+                            Strings.MsgError, MessageBoxButton.OK, MessageBoxImage.Error);
                         return;
                     }
                     finally
@@ -799,19 +823,18 @@ namespace TagFilter
                 }
                 else
                 {
-                    // ファイルはあるが切り替えが必要
                     try
                     {
-                        SetStatus($"「{preset.Name}」に切り替え中...");
+                        SetStatus(Strings.StatusModelSwitching(localModelName));
                         bool ok = await Task.Run(
                             () => _vm.LoadModel(preset.OnnxPath, preset.CsvPath, device));
-                        if (!ok) { SetStatus("モデルの切り替えに失敗しました"); return; }
+                        if (!ok) { SetStatus(Strings.StatusModelSwFailed); return; }
                         UpdateModelStatus();
-                        SetStatus($"「{preset.Name}」に切り替えました");
+                        SetStatus(Strings.StatusModelSwitched(localModelName));
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(ex.Message, "モデル切り替えエラー",
+                        MessageBox.Show(ex.Message, Strings.MsgModelSwitchError,
                             MessageBoxButton.OK, MessageBoxImage.Error);
                         return;
                     }
@@ -819,71 +842,18 @@ namespace TagFilter
             }
             else
             {
-                // 変更後：デバイスが変わった時だけ再ロード
                 if (_vm.LastDevice != device)
                 {
                     try { _vm.ReloadWithDevice(device); }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(ex.Message, "モデル再ロードエラー",
+                        MessageBox.Show(ex.Message, Strings.MsgModelReloadError,
                             MessageBoxButton.OK, MessageBoxImage.Error);
                         return;
                     }
                 }
             }
 
-
-
-            // ── 以降は推論処理──────────────────────────────
-            /*
-            var targets = GetTargetItems();
-            if (!targets.Any()) { SetStatus("⚠ フォルダを開いてください"); return; }
-
-            var keepCategories = GetSelectedLoraCategories();
-            string modeName = LoraModes[CmbLoraMode.SelectedIndex].Label;
-            //int parallel = GetParallelCount();
-            // GPU使用時は並列1固定（DirectMLはスレッドセーフでないため）
-            bool useGpu = GetExecutionDevice() != ExecutionDevice.Cpu;
-            int parallel = useGpu ? 1 : GetParallelCount();
-            string deviceLabel = GetExecutionDevice() == ExecutionDevice.Gpu ? "DirectML" : "CPU";
-
-            BtnAutoTag.IsEnabled = false;
-            BtnOpenFolder.IsEnabled = false;
-            ImageList.IsEnabled = false;
-            ProgressBar.Visibility = Visibility.Visible;
-            TxtProgress.Visibility = Visibility.Visible;
-            ProgressBar.Maximum = targets.Count;
-            ProgressBar.Value = 0;
-
-            var progress = new Progress<int>(v =>
-            {
-                ProgressBar.Value = v;
-                TxtProgress.Text = $"{v} / {targets.Count}";
-                SetStatus($"推論中 [{deviceLabel} x{parallel}]  {v}/{targets.Count} 枚");
-            });
-
-            try
-            {
-                await _vm.BatchTagAsync(targets, (float)SliderThreshold.Value,
-                                        progress, keepCategories, parallel                                       
-                                        );
-                RebuildDisplayItems();
-                SetStatus($"完了: [{modeName} / {deviceLabel} x{parallel}]  {targets.Count} 枚");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"推論エラー:\n{ex.Message}", "エラー",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            finally
-            {
-                BtnAutoTag.IsEnabled = true;
-                BtnOpenFolder.IsEnabled = true;
-                ImageList.IsEnabled = true;
-                ProgressBar.Visibility = Visibility.Collapsed;
-                TxtProgress.Visibility = Visibility.Collapsed;
-            }
-            */
             await RunAutoTagAsync();
         }
 
@@ -892,23 +862,22 @@ namespace TagFilter
             var device = GetExecutionDevice();
             var preset = GetSelectedPreset();
 
-            // モデルロード（未ロードの場合）
             if (!_vm.IsTaggerReady || _vm.CurrentPreset != preset)
             {
                 bool ok = await Task.Run(
                     () => _vm.LoadModel(preset.OnnxPath, preset.CsvPath, device));
-                if (!ok) { SetStatus("モデルのロードに失敗しました"); return; }
+                if (!ok) { SetStatus(Strings.StatusModelFailed); return; }
                 UpdateModelStatus();
             }
 
             var targets = GetTargetItems();
-            if (!targets.Any()) return;
+            if (!targets.Any()) { SetStatus(Strings.StatusNoFolder); return; }
 
             var keepCategories = GetSelectedLoraCategories();
             bool useGpu = GetExecutionDevice() != ExecutionDevice.Cpu;
             int parallel = useGpu ? 1 : GetParallelCount();
             string deviceLabel = useGpu ? "DirectML" : "CPU";
-            string modeName = LoraModes[CmbLoraMode.SelectedIndex].Label;
+            string modeName = Strings.LoraModeLabels[CmbLoraMode.SelectedIndex];
 
             BtnAutoTag.IsEnabled = false;
             BtnOpenFolder.IsEnabled = false;
@@ -922,7 +891,7 @@ namespace TagFilter
             {
                 ProgressBar.Value = v;
                 TxtProgress.Text = $"{v} / {targets.Count}";
-                SetStatus($"推論中 [{deviceLabel} x{parallel}] {v}/{targets.Count} 枚");
+                SetStatus(Strings.StatusInferring(deviceLabel, parallel, v, targets.Count));
             });
 
             try
@@ -930,12 +899,12 @@ namespace TagFilter
                 await _vm.BatchTagAsync(targets, (float)SliderThreshold.Value,
                     progress, keepCategories, parallel);
                 RebuildDisplayItems();
-                SetStatus($"完了: [{modeName} / {deviceLabel} x{parallel}] {targets.Count} 枚");
+                SetStatus(Strings.StatusDone(modeName, deviceLabel, parallel, targets.Count));
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"推論エラー:\n{ex.Message}", "エラー",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"{Strings.MsgInferError}\n{ex.Message}",
+                    Strings.MsgError, MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -947,34 +916,17 @@ namespace TagFilter
             }
         }
 
-        private async Task ManualLoadModelAsync(ExecutionDevice device)
-        {
-            var onnxDlg = new Microsoft.Win32.OpenFileDialog
-            { Title = "ONNXモデルを選択", Filter = "ONNX Model (*.onnx)|*.onnx" };
-            if (onnxDlg.ShowDialog() != true) return;
-            var csvDlg = new Microsoft.Win32.OpenFileDialog
-            { Title = "selected_tags.csv を選択", Filter = "CSV (*.csv)|*.csv" };
-            if (csvDlg.ShowDialog() != true) return;
-            SetStatus("モデルを読み込んでいます...");
-            bool ok = await Task.Run(() => _vm.LoadModel(onnxDlg.FileName, csvDlg.FileName, device));
-            SetStatus(ok ? "モデルの読み込み完了" : "モデルの読み込みに失敗しました");
-        }
-
         // ── 不要タグ一括削除 ────────────────────────────────────────────
         private void TxtDeleteTag_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            BtnBulkDeleteTag.IsEnabled = !string.IsNullOrWhiteSpace(TxtDeleteTag.Text);
-        }
+            => BtnBulkDeleteTag.IsEnabled = !string.IsNullOrWhiteSpace(TxtDeleteTag.Text);
 
         private void TxtDeleteTag_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter) DoBulkDeleteTag();
         }
-
         private void BtnBulkDeleteTag_Click(object sender, RoutedEventArgs e)
             => DoBulkDeleteTag();
 
-        // クイックボタン（solo / blue_skin 等）
         private void BtnQuickDelete_Click(object sender, RoutedEventArgs e)
         {
             var tagName = (sender as Button)?.Tag as string;
@@ -986,47 +938,38 @@ namespace TagFilter
         private void DoBulkDeleteTag()
         {
             var tagName = TxtDeleteTag.Text.Trim().ToLower().Replace(" ", "_");
-            if (string.IsNullOrEmpty(tagName))
-            {
-                SetStatus("⚠ 削除するタグを入力してください");
-                return;
-            }
+            if (string.IsNullOrEmpty(tagName)) { SetStatus(Strings.StatusNoDelInput); return; }
 
-            // 対象画像の中にこのタグが何件あるか確認
             var targets = GetTargetItems();
-            int hitCount = targets.Count(item =>
-                item.Tags.Any(t => t.Name == tagName));
+            int hitCount = targets.Count(item => item.Tags.Any(t => t.Name == tagName));
 
             if (hitCount == 0)
             {
-                SetStatus($"「{tagName}」は見つかりませんでした");
+                SetStatus(Strings.StatusTagNotFound(tagName));
                 TxtDeleteTag.Clear();
                 return;
             }
 
             string scope = ImageList.SelectedItems.Count > 0
-                ? $"選択中 {targets.Count} 枚" : $"全 {targets.Count} 枚";
+                ? Strings.ScopeSelected(targets.Count)
+                : Strings.ScopeAll(targets.Count);
 
             var result = MessageBox.Show(
-                $"{scope} の画像から\n「{tagName}」を {hitCount} 件削除します。\n\nよろしいですか？",
-                "タグ一括削除の確認",
-                MessageBoxButton.OKCancel,
-                MessageBoxImage.Warning);
+                Strings.MsgBulkDeleteTag(scope, tagName, hitCount),
+                Strings.MsgBulkDeleteTitle,
+                MessageBoxButton.OKCancel, MessageBoxImage.Warning);
             if (result != MessageBoxResult.OK) return;
 
             _vm.BulkDeleteTag(tagName, targets);
             ReapplyFilter();
-
-            SetStatus($"「{tagName}」を {hitCount} 件削除しました");
+            SetStatus(Strings.StatusTagDeleted(tagName, hitCount));
             TxtDeleteTag.Clear();
         }
 
-        // ══ タグ集計パネル ════════════════════════════════════════════════
-
+        // ── タグ集計パネル ───────────────────────────────────────────────
         private string _selectedSummaryTag = null;
         private bool _isSortUpdating = false;
 
-        /// <summary>全アイテムのタグを集計してパネルを再構築</summary>
         public void RebuildTagSummary()
         {
             var counts = new Dictionary<string, int>();
@@ -1037,7 +980,6 @@ namespace TagFilter
                     counts[tag.Name]++;
                 }
 
-            // ソート
             IEnumerable<KeyValuePair<string, int>> sorted;
             if (SortByCount.IsChecked == true)
                 sorted = counts.OrderByDescending(x => x.Value).ThenBy(x => x.Key);
@@ -1047,11 +989,10 @@ namespace TagFilter
             TagSummaryPanel.Children.Clear();
             _selectedSummaryTag = null;
             BtnDeleteSelectedSummaryTag.IsEnabled = false;
+            BtnDeleteSelectedSummaryTag.Content = Strings.BtnDeleteSelectedDefault;
 
-            int totalTags = counts.Count;
-            int totalImages = _vm.Items.Count;
-            TxtSummaryInfo.Text =
-                $"（{totalTags} 種類 / {totalImages} 枚）";
+            //TxtSummaryInfo.Text = $"（{counts.Count} 種類 / {_vm.Items.Count} 枚）";
+            TxtSummaryInfo.Text = Strings.TxtSummaryInfo(counts.Count, _vm.Items.Count);
 
             foreach (var kv in sorted)
                 TagSummaryPanel.Children.Add(CreateSummaryTagChip(kv.Key, kv.Value));
@@ -1065,56 +1006,41 @@ namespace TagFilter
                 Padding = new Thickness(7, 3, 7, 3),
                 Margin = new Thickness(0, 0, 4, 4),
                 Cursor = Cursors.Hand,
-                Background = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter
-                        .ConvertFromString("#313149")),
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#313149")),
                 Tag = tagName,
             };
-
             var panel = new StackPanel { Orientation = Orientation.Horizontal };
-
             var nameText = new TextBlock
             {
                 Text = tagName,
-                Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter
-                        .ConvertFromString("#CDD6F4")),
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CDD6F4")),
                 FontSize = 11,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-
             var countBadge = new Border
             {
-                Background = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter
-                        .ConvertFromString("#89B4FA")),
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#89B4FA")),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(5, 1, 5, 1),
                 Margin = new Thickness(5, 0, 0, 0),
                 Child = new TextBlock
                 {
                     Text = count.ToString(),
-                    Foreground = new System.Windows.Media.SolidColorBrush(
-                        System.Windows.Media.Colors.Black),
+                    Foreground = new SolidColorBrush(Colors.Black),
                     FontSize = 10,
                     FontWeight = FontWeights.Bold,
                     VerticalAlignment = VerticalAlignment.Center,
                 }
             };
-
             panel.Children.Add(nameText);
             panel.Children.Add(countBadge);
             border.Child = panel;
-
-            border.MouseLeftButtonDown += (s, e) =>
-                SelectSummaryTag(border, tagName);
-
+            border.MouseLeftButtonDown += (s, e) => SelectSummaryTag(border, tagName);
             return border;
         }
 
         private void SelectSummaryTag(Border border, string tagName)
         {
-            // 前の選択を解除
             foreach (var child in TagSummaryPanel.Children.OfType<Border>())
             {
                 child.BorderThickness = new Thickness(0);
@@ -1123,25 +1049,19 @@ namespace TagFilter
 
             if (_selectedSummaryTag == tagName)
             {
-                // 同じタグを再クリック → 選択解除
                 _selectedSummaryTag = null;
                 BtnDeleteSelectedSummaryTag.IsEnabled = false;
-                BtnDeleteSelectedSummaryTag.Content = "選択タグを全削除";
+                BtnDeleteSelectedSummaryTag.Content = Strings.BtnDeleteSelectedDefault;
                 TxtDeleteTag.Clear();
             }
             else
             {
-                // 新しいタグを選択
                 _selectedSummaryTag = tagName;
                 border.BorderThickness = new Thickness(2);
-                border.BorderBrush = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter
-                        .ConvertFromString("#F38BA8"));
-
-                BtnDeleteSelectedSummaryTag.Content = $"「{tagName}」を全削除";
+                border.BorderBrush = new SolidColorBrush(
+                    (Color)ColorConverter.ConvertFromString("#F38BA8"));
+                BtnDeleteSelectedSummaryTag.Content = Strings.BtnDeleteSelectedLabel(tagName);
                 BtnDeleteSelectedSummaryTag.IsEnabled = true;
-
-                // 不要タグ削除欄にもセット
                 TxtDeleteTag.Text = tagName;
             }
         }
@@ -1156,27 +1076,27 @@ namespace TagFilter
 
             if (hitCount == 0)
             {
-                SetStatus($"「{_selectedSummaryTag}」は見つかりませんでした");
+                SetStatus(Strings.StatusTagNotFound(_selectedSummaryTag));
                 return;
             }
 
             string scope = ImageList.SelectedItems.Count > 0
-                ? $"選択中 {targets.Count} 枚" : $"全 {targets.Count} 枚";
+                ? Strings.ScopeSelected(targets.Count)
+                : Strings.ScopeAll(targets.Count);
 
             var result = MessageBox.Show(
-                $"{scope} の画像から\n「{_selectedSummaryTag}」を {hitCount} 件削除します。\n\nよろしいですか？",
-                "タグ一括削除の確認",
-                MessageBoxButton.OKCancel,
-                MessageBoxImage.Warning);
+                Strings.MsgBulkDeleteTag(scope, _selectedSummaryTag, hitCount),
+                Strings.MsgBulkDeleteTitle,
+                MessageBoxButton.OKCancel, MessageBoxImage.Warning);
             if (result != MessageBoxResult.OK) return;
 
             _vm.BulkDeleteTag(_selectedSummaryTag, targets);
             ReapplyFilter();
-            RebuildTagSummary();      // 集計を更新
-            SetStatus($"「{_selectedSummaryTag}」を {hitCount} 件削除しました");
+            RebuildTagSummary();
+            SetStatus(Strings.StatusTagDeleted(_selectedSummaryTag, hitCount));
             _selectedSummaryTag = null;
             BtnDeleteSelectedSummaryTag.IsEnabled = false;
-            BtnDeleteSelectedSummaryTag.Content = "選択タグを全削除";
+            BtnDeleteSelectedSummaryTag.Content = Strings.BtnDeleteSelectedDefault;
             TxtDeleteTag.Clear();
         }
 
@@ -1184,19 +1104,27 @@ namespace TagFilter
         {
             if (_isSortUpdating) return;
             if (TagSummaryPanel == null || _vm?.Items == null) return;
-
             _isSortUpdating = true;
             try
             {
                 if (sender == SortByCount) SortByName.IsChecked = false;
                 else SortByCount.IsChecked = false;
-                // どちらも外れた場合は件数順をデフォルトに
                 if (SortByCount.IsChecked != true && SortByName.IsChecked != true)
                     SortByCount.IsChecked = true;
                 RebuildTagSummary();
             }
             finally { _isSortUpdating = false; }
         }
+
+        private void BtnUnderscore_Click(object sender, RoutedEventArgs e)
+        {
+            bool useUnder = BtnUnderscore.IsChecked == true;
+            BtnUnderscore.Content = useUnder
+                ? Strings.BtnUnderscoreOn : Strings.BtnUnderscoreOff;
+            _settings.UseUnderscores = useUnder;
+            AppSettings.Current.UseUnderscores = useUnder;
+        }
+
 
         private void SetStatus(string message) => TxtStatus.Text = message;
     }
