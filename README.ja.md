@@ -158,6 +158,8 @@ TagFilter.exe "E:\dataset\chara_C" 2
 
 使用ライブラリ：[Microsoft.ML.OnnxRuntime.DirectML](https://github.com/microsoft/onnxruntime)（MIT）／[OpenCvSharp4](https://github.com/shimat/opencvsharp)（Apache 2.0）／[Costura.Fody](https://github.com/Fody/Costura)（MIT）
 
+---
+
 ## 免責事項
 本ツールは個人データセットの管理のみを目的としています。
 
