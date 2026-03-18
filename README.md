@@ -152,16 +152,71 @@ Uses WD14 Tagger models published by [SmilingWolf](https://huggingface.co/Smilin
 
 ---
 
-## License
+---
 
-[MIT License](LICENSE.txt)
+## Train LoRA
+
+Built-in LoRA training via kohya_ss. Switch to the **Train LoRA** tab in the right panel.
+
+### Requirements
+
+- kohya_ss installed locally (tested with standard install and StabilityMatrix)
+- SDXL base model (.safetensors)
+- VRAM 12 GB recommended (RTX 4070 / 4080 / 5070 etc.)
+
+### Setup (Paths tab)
+
+| Field | Description |
+|---|---|
+| kohya_ss folder | Root folder of kohya_ss (contains `venv/` and `sd-scripts/`) |
+| pretrained_model | Path to SDXL base model (.safetensors) |
+| output_dir | Folder where the trained .safetensors will be saved |
+| output_name | Output filename (without extension) |
+| repeats | Number of times each image is repeated per epoch |
+
+Training images are taken from the folder currently open in the main window. No need to set up a separate folder structure — the app automatically creates the required `repeats_name/` subfolder for kohya_ss.
+
+### Presets
+
+| Preset | Target | VRAM |
+|---|---|---|
+| Anime SDXL | Illustration / anime style | ~10 GB |
+| Photo SDXL | Real photos | ~10 GB |
+
+Both presets use `gradient_checkpointing=true` to keep VRAM under 12 GB.
+
+### Parameter Tabs
+
+- **Network** — network_dim, network_alpha, epochs, batch size, resolution
+- **LR** — learning_rate, unet_lr, text_encoder_lr, scheduler
+- **Optimizer** — optimizer_type, mixed_precision, save_precision
+- **Advanced** — noise_offset, min_snr_gamma, shuffle_caption, keep_tokens, clip_skip
+
+Settings are auto-saved on close and restored on next launch.
+
+### Batch Processing with LoRA Training
+
+Add a 5th argument to trigger LoRA training automatically after tagging:
+
+```
+TagFilter.exe <folder> [LoRA mode] [insert tags] [""] [LoRA output name]
+```
+
+| Arg | Description |
+|---|---|
+| Arg 5 | LoRA output name — triggers training after tagging. Paths/params loaded from `lora_settings.xml`. |
+
+**Example:**
+```bat
+@echo off
+TagFilter.exe "E:\dataset\chara_A" 1 "" "" "chara_a_lora"
+TagFilter.exe "E:\dataset\chara_B" 1 "" "" "chara_b_lora"
+```
 
 ---
 
-## Disclaimer
-This tool is for personal dataset management only.
-Users are responsible for ensuring their use of this tool
-complies with applicable laws and third-party rights.
-The author is not responsible for any misuse.
+## License
+
+[MIT License](LICENSE.txt)
 
 Libraries: [Microsoft.ML.OnnxRuntime.DirectML](https://github.com/microsoft/onnxruntime) (MIT) / [OpenCvSharp4](https://github.com/shimat/opencvsharp) (Apache 2.0) / [Costura.Fody](https://github.com/Fody/Costura) (MIT)
