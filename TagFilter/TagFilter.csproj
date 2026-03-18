@@ -61,6 +61,15 @@
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
+  <PropertyGroup>
+    <SignManifests>true</SignManifests>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ManifestCertificateThumbprint>012D927035707084F5B8543A217CEA58144B51A6</ManifestCertificateThumbprint>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ManifestKeyFile>TagFilterCert.pfx</ManifestKeyFile>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Costura, Version=6.0.0.0, Culture=neutral, PublicKeyToken=9919ef960d84173d, processorArchitecture=MSIL">
       <HintPath>..\packages\Costura.Fody.6.0.0\lib\netstandard2.0\Costura.dll</HintPath>
@@ -109,6 +118,7 @@
     <Compile Include="AppSettings.cs" />
     <Compile Include="DatasetItem.cs" />
     <Compile Include="FileHelper.cs" />
+    <Compile Include="LoraTrainingSettings.cs" />
     <Compile Include="MainVewModel.cs" />
     <Compile Include="Polyfill.cs" />
     <Compile Include="String.cs" />
@@ -154,6 +164,7 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
+    <None Include="TagFilterCert.pfx" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

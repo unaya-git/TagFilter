@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -100,6 +101,9 @@ namespace TagFilter
             RegisterFilterEvents();
             RebuildUnwantedTagChips();
 
+            _loraSettings = LoraTrainingSettings.Load();
+            LoadLoraSettingsToUI();
+
             Closing += MainWindow_Closing;
             Loaded += async (_, __) =>
             {
@@ -119,6 +123,7 @@ namespace TagFilter
             _settings.LoraModeIndex = CmbLoraMode.SelectedIndex;
             _settings.Threshold = SliderThreshold.Value;
             _settings.UseUnderscores = BtnUnderscore.IsChecked == true;
+            ReadLoraSettingsFromUI().Save();
             _settings.Save();
         }
 
@@ -279,6 +284,33 @@ namespace TagFilter
                     _vm.BulkInsertTag(tag, targets);
                 RebuildDisplayItems();
                 SetStatus(Strings.StatusInsertDone(string.Join(", ", insertTags)));
+            }
+
+            // 引数4: LoRA output_name（指定があればLoRA学習を実行）
+            if (args.Length >= 5 && !string.IsNullOrWhiteSpace(args[4]))
+            {
+                _loraSettings = LoraTrainingSettings.Load();
+                _loraSettings.OutputName = args[4].Trim();
+
+                if (string.IsNullOrEmpty(_loraSettings.KohyaPath) ||
+                    !Directory.Exists(_loraSettings.KohyaPath))
+                {
+                    AppendLoraLog("[ERROR] kohya_ss path not set. Run GUI first to configure.");
+                }
+                else if (string.IsNullOrEmpty(_loraSettings.BaseModelPath) ||
+                         !File.Exists(_loraSettings.BaseModelPath))
+                {
+                    AppendLoraLog("[ERROR] Base model not found.");
+                }
+                else
+                {
+                    SetStatus("LoRA training...");
+                    // UIなしでBtnStartTraining_Clickと同じロジックを実行
+                    await Task.Run(() => Dispatcher.Invoke(() => BtnStartTraining_Click(null, null)));
+                    // 学習完了を待つ
+                    while (_trainingProcess != null && !_trainingProcess.HasExited)
+                        await Task.Delay(1000);
+                }
             }
 
             await Task.Delay(500);
@@ -769,7 +801,11 @@ namespace TagFilter
         {
             var device = GetExecutionDevice();
             var preset = GetSelectedPreset();
-            string localModelName = Strings.ModelNames[CmbModel.SelectedIndex];
+            //string localModelName = Strings.ModelNames[CmbModel.SelectedIndex];
+            int modelIdx = CmbModel.SelectedIndex;
+            string localModelName = (modelIdx >= 0 && modelIdx < Strings.ModelNames.Length)
+                ? Strings.ModelNames[modelIdx]
+                : "Unknown";
             bool needLoad = !_vm.IsTaggerReady || _vm.CurrentPreset != preset;
 
             if (needLoad)
@@ -1125,6 +1161,393 @@ namespace TagFilter
             AppSettings.Current.UseUnderscores = useUnder;
         }
 
+        #region LoRA作成
+        // ── LoRA Training フィールド ──────────────────────────────────────
+        private LoraTrainingSettings _loraSettings;
+        private Process _trainingProcess;
+
+
+        private void LoadLoraSettingsToUI()
+        {
+            var s = _loraSettings;
+            if (s == null) return;
+
+            TxtKohyaPath.Text = s.KohyaPath;
+            TxtBaseModel.Text = s.BaseModelPath;
+            TxtOutputDir.Text = s.OutputDir;
+            TxtOutputName.Text = s.OutputName;
+            TxtRepeats.Text = s.Repeats.ToString();
+
+            TxtNetworkDim.Text = s.NetworkDim.ToString();
+            TxtNetworkAlpha.Text = s.NetworkAlpha.ToString();
+            TxtMaxEpochs.Text = s.MaxTrainEpochs.ToString();
+            TxtBatchSize.Text = s.TrainBatchSize.ToString();
+            TxtSaveEvery.Text = s.SaveEveryNEpochs.ToString();
+            SetLoraComboByContent(CmbResolution, s.Resolution.ToString());
+            ChkEnableBucket.IsChecked = s.EnableBucket;
+            ChkBucketNoUpscale.IsChecked = s.BucketNoUpscale;
+
+            TxtLr.Text = s.LearningRate;
+            TxtUnetLr.Text = s.UnetLr;
+            TxtTeLr.Text = s.TextEncoderLr;
+            SetLoraComboByContent(CmbLrScheduler, s.LrScheduler);
+            TxtWarmupSteps.Text = s.LrWarmupSteps.ToString();
+            TxtNumCycles.Text = s.LrSchedulerNumCycles.ToString();
+
+            SetLoraComboByContent(CmbOptimizer, s.OptimizerType);
+            SetLoraComboByContent(CmbMixedPrecision, s.MixedPrecision);
+            SetLoraComboByContent(CmbSavePrecision, s.SavePrecision);
+            ChkGradCheck.IsChecked = s.GradientCheckpointing;
+            TxtNumCpuThreads.Text = s.NumCpuThreads.ToString();
+
+            TxtNoiseOffset.Text = s.NoiseOffset.ToString("F2");
+            TxtMinSnr.Text = s.MinSnrGamma.ToString("F1");
+            TxtScaleWeightNorms.Text = s.ScaleWeightNorms.ToString("F1");
+            ChkShuffleCaption.IsChecked = s.ShuffleCaption;
+            TxtKeepTokens.Text = s.KeepTokens.ToString();
+            TxtClipSkip.Text = s.ClipSkip.ToString();
+            ChkNoHalfVae.IsChecked = s.NoHalfVae;
+
+            SetLoraComboByContent(CmbAttentionMode, s.AttentionMode);
+            ChkCacheLatents.IsChecked = s.CacheLatents;
+            ChkCacheLatentsToDisk.IsChecked = s.CacheLatentsToDisk;
+
+            // Training data dir
+            string folder = _vm.Items.Count > 0
+                ? Path.GetDirectoryName(_vm.Items[0].ImagePath) : "";
+            TxtTrainDataDir.Text = string.IsNullOrEmpty(folder)
+                ? "(Open a folder in the main window)" : folder;
+        }
+
+        private LoraTrainingSettings ReadLoraSettingsFromUI()
+        {
+            var s = _loraSettings ?? new LoraTrainingSettings();
+
+            s.KohyaPath = TxtKohyaPath.Text.Trim();
+            s.BaseModelPath = TxtBaseModel.Text.Trim();
+            s.OutputDir = TxtOutputDir.Text.Trim();
+            s.OutputName = TxtOutputName.Text.Trim();
+            s.Repeats = ParseLoraInt(TxtRepeats.Text, 10);
+
+            s.NetworkDim = ParseLoraInt(TxtNetworkDim.Text, 32);
+            s.NetworkAlpha = ParseLoraInt(TxtNetworkAlpha.Text, 16);
+
+            s.MaxTrainEpochs = ParseLoraInt(TxtMaxEpochs.Text, 10);
+            s.TrainBatchSize = ParseLoraInt(TxtBatchSize.Text, 1);
+            s.SaveEveryNEpochs = ParseLoraInt(TxtSaveEvery.Text, 2);
+            s.Resolution = ParseLoraInt(
+                (CmbResolution.SelectedItem as ComboBoxItem)?.Content?.ToString(), 1024);
+            s.EnableBucket = ChkEnableBucket.IsChecked == true;
+            s.BucketNoUpscale = ChkBucketNoUpscale.IsChecked == true;
+
+            s.LearningRate = TxtLr.Text.Trim();
+            s.UnetLr = TxtUnetLr.Text.Trim();
+            s.TextEncoderLr = TxtTeLr.Text.Trim();
+            s.LrScheduler = (CmbLrScheduler.SelectedItem as ComboBoxItem)
+                                      ?.Content?.ToString() ?? "cosine_with_restarts";
+            s.LrWarmupSteps = ParseLoraInt(TxtWarmupSteps.Text, 0);
+            s.LrSchedulerNumCycles = ParseLoraInt(TxtNumCycles.Text, 1);
+
+            s.OptimizerType = (CmbOptimizer.SelectedItem as ComboBoxItem)
+                                      ?.Content?.ToString() ?? "AdamW8bit";
+            s.MixedPrecision = (CmbMixedPrecision.SelectedItem as ComboBoxItem)
+                                      ?.Content?.ToString() ?? "bf16";
+            s.SavePrecision = (CmbSavePrecision.SelectedItem as ComboBoxItem)
+                                      ?.Content?.ToString() ?? "bf16";
+            s.GradientCheckpointing = ChkGradCheck.IsChecked == true;
+            s.NumCpuThreads = ParseLoraInt(TxtNumCpuThreads.Text, 2);
+
+            s.NoiseOffset = ParseLoraDouble(TxtNoiseOffset.Text, 0.0);
+            s.MinSnrGamma = ParseLoraDouble(TxtMinSnr.Text, 5.0);
+            s.ScaleWeightNorms = ParseLoraDouble(TxtScaleWeightNorms.Text, 1.0);
+            s.ShuffleCaption = ChkShuffleCaption.IsChecked == true;
+            s.KeepTokens = ParseLoraInt(TxtKeepTokens.Text, 1);
+            s.ClipSkip = ParseLoraInt(TxtClipSkip.Text, 1);
+            s.NoHalfVae = ChkNoHalfVae.IsChecked == true;
+
+            s.AttentionMode = (CmbAttentionMode.SelectedItem as ComboBoxItem)
+                        ?.Content?.ToString() ?? "sdpa";
+            s.CacheLatents = ChkCacheLatents.IsChecked == true;
+            s.CacheLatentsToDisk = ChkCacheLatentsToDisk.IsChecked == true;
+
+            _loraSettings = s;
+            return s;
+        }
+
+        // ── Preset ──────────────────────────────────────────────────────
+        private void BtnPresetAnime_Click(object sender, RoutedEventArgs e)
+        {
+            if (_loraSettings == null) _loraSettings = new LoraTrainingSettings();
+            ReadLoraSettingsFromUI();
+            _loraSettings.ApplyPreset(LoraTrainingSettings.AnimePreset);
+            LoadLoraSettingsToUI();
+            TxtPresetName.Text = "Anime SDXL preset applied";
+        }
+
+        private void BtnPresetPhoto_Click(object sender, RoutedEventArgs e)
+        {
+            if (_loraSettings == null) _loraSettings = new LoraTrainingSettings();
+            ReadLoraSettingsFromUI();
+            _loraSettings.ApplyPreset(LoraTrainingSettings.PhotoPreset);
+            LoadLoraSettingsToUI();
+            TxtPresetName.Text = "Photo SDXL preset applied";
+        }
+
+        // ── Browse ──────────────────────────────────────────────────────
+        private void BtnBrowseKohya_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new System.Windows.Forms.FolderBrowserDialog
+            { Description = "Select kohya_ss folder" };
+            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                TxtKohyaPath.Text = dlg.SelectedPath;
+        }
+
+        private void BtnBrowseModel_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Select base model",
+                Filter = "Model (*.safetensors;*.ckpt)|*.safetensors;*.ckpt"
+            };
+            if (dlg.ShowDialog() == true)
+                TxtBaseModel.Text = dlg.FileName;
+        }
+
+        private void BtnBrowseOutput_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new System.Windows.Forms.FolderBrowserDialog
+            { Description = "Select output folder" };
+            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                TxtOutputDir.Text = dlg.SelectedPath;
+        }
+
+        // ── Training ────────────────────────────────────────────────────
+        private void BtnStartTraining_Click(object sender, RoutedEventArgs e)
+        {
+            var s = ReadLoraSettingsFromUI();
+
+
+            // Validate
+            if (string.IsNullOrEmpty(s.KohyaPath) || !Directory.Exists(s.KohyaPath))
+            { AppendLoraLog("[ERROR] kohya_ss folder not found."); return; }
+            if (string.IsNullOrEmpty(s.BaseModelPath) || !File.Exists(s.BaseModelPath))
+            { AppendLoraLog("[ERROR] Base model not found."); return; }
+
+            string sourceDir = _vm.Items.Count > 0
+                ? Path.GetDirectoryName(_vm.Items[0].ImagePath) : "";
+            if (string.IsNullOrEmpty(sourceDir) || !Directory.Exists(sourceDir))
+            { AppendLoraLog("[ERROR] Open a folder in the main window first."); return; }
+            if (string.IsNullOrEmpty(s.OutputDir))
+            { AppendLoraLog("[ERROR] output_dir is empty."); return; }
+
+            // kohya_ss用サブフォルダを作成（repeats_概念名）
+            string conceptName = string.IsNullOrEmpty(s.OutputName) ? "concept" : s.OutputName;
+            string subFolderName = $"{s.Repeats}_{conceptName}";
+            string appDir = AppDomain.CurrentDomain.BaseDirectory;
+            string trainDir = Path.Combine(appDir, "__kohya_train__", subFolderName);
+            string trainDataDir = Path.Combine(appDir, "__kohya_train__");            // train_data_dirはサブフォルダの親を渡す
+
+
+            // trainDir作成前に既存の__kohya_train__を削除
+            if (Directory.Exists(trainDataDir))
+                Directory.Delete(trainDataDir, true);
+            Directory.CreateDirectory(trainDir);
+
+            // 画像とtxtをサブフォルダにコピー
+            var extensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".txt" };
+            foreach (var file in Directory.GetFiles(sourceDir)
+                .Where(f => extensions.Contains(Path.GetExtension(f).ToLower())))
+            {
+                string dest = Path.Combine(trainDir, Path.GetFileName(file));
+                if (!File.Exists(dest))
+                    File.Copy(file, dest);
+            }
+            AppendLoraLog($"[INFO] Train dir: {trainDir}");
+
+
+            Directory.CreateDirectory(s.OutputDir);
+
+            string accelerate = Path.Combine(s.KohyaPath, "venv", "Scripts", "accelerate.exe");
+            string trainScript = Path.Combine(s.KohyaPath, "sd-scripts", "sdxl_train_network.py");
+
+
+
+            if (!File.Exists(accelerate))
+            { AppendLoraLog($"[ERROR] accelerate.exe not found:\n  {accelerate}"); return; }
+            if (!File.Exists(trainScript))
+            { AppendLoraLog($"[ERROR] sdxl_train_network.py not found:\n  {trainScript}"); return; }
+
+            var args = new System.Text.StringBuilder();
+            args.Append($"launch --num_cpu_threads_per_process {s.NumCpuThreads} ");
+            args.Append($"\"{trainScript}\" ");
+            args.Append($"--pretrained_model_name_or_path \"{s.BaseModelPath}\" ");
+            args.Append($"--train_data_dir \"{trainDataDir}\" ");
+            args.Append($"--output_dir \"{s.OutputDir}\" ");
+            args.Append($"--output_name \"{s.OutputName}\" ");
+            args.Append("--network_module networks.lora ");
+            args.Append($"--network_dim {s.NetworkDim} ");
+            args.Append($"--network_alpha {s.NetworkAlpha} ");
+            args.Append($"--max_train_epochs {s.MaxTrainEpochs} ");
+            args.Append($"--train_batch_size {s.TrainBatchSize} ");
+            args.Append($"--save_every_n_epochs {s.SaveEveryNEpochs} ");
+            args.Append($"--resolution {s.Resolution},{s.Resolution} ");
+            if (s.EnableBucket) args.Append("--enable_bucket ");
+            if (s.BucketNoUpscale) args.Append("--bucket_no_upscale ");
+            args.Append($"--learning_rate {s.LearningRate} ");
+            args.Append($"--unet_lr {s.UnetLr} ");
+            args.Append($"--text_encoder_lr {s.TextEncoderLr} ");
+            args.Append($"--lr_scheduler {s.LrScheduler} ");
+            args.Append($"--lr_warmup_steps {s.LrWarmupSteps} ");
+            args.Append($"--lr_scheduler_num_cycles {s.LrSchedulerNumCycles} ");
+            args.Append($"--optimizer_type {s.OptimizerType} ");
+            args.Append($"--mixed_precision {s.MixedPrecision} ");
+            args.Append($"--save_precision {s.SavePrecision} ");
+            if (s.GradientCheckpointing) args.Append("--gradient_checkpointing ");
+            if (s.NoiseOffset > 0) args.Append($"--noise_offset {s.NoiseOffset:F2} ");
+            if (s.MinSnrGamma > 0) args.Append($"--min_snr_gamma {s.MinSnrGamma:F1} ");
+            if (s.ScaleWeightNorms > 0) args.Append($"--scale_weight_norms {s.ScaleWeightNorms:F1} ");
+            if (s.ShuffleCaption) args.Append("--shuffle_caption ");
+            if (s.KeepTokens > 0) args.Append($"--keep_tokens {s.KeepTokens} ");
+            if (s.ClipSkip > 1) args.Append($"--clip_skip {s.ClipSkip} ");
+            //if (s.NoHalfVae) args.Append("--no_half_vae ");
+            args.Append("--caption_extension .txt ");
+            //args.Append("--sdpa ");  // PyTorch標準のSDPAを使用
+            //args.Append("--full_bf16 ");
+            // args.Append("--cache_latents ");     // VRAMに詰め込むので、外してみる
+            //args.Append("--cache_latents_to_disk "); // ディスク保存でVRAM節約・・・らしい（SSDが死ぬ？）
+            switch (s.AttentionMode)
+            {
+                case "sdpa": args.Append("--sdpa "); break;
+                case "xformers": args.Append("--xformers "); break;
+                    // "none" は何も追加しない
+            }
+            args.Append("--full_bf16 ");
+            if (s.CacheLatents) args.Append("--cache_latents ");
+            if (s.CacheLatentsToDisk) args.Append("--cache_latents_to_disk ");
+
+            args.Append("--max_data_loader_n_workers 1 ");   
+            args.Append("--persistent_data_loader_workers ");  
+
+            AppendLoraLog($"[START] {DateTime.Now:HH:mm:ss}");
+            AppendLoraLog("──────────────────────────────");
+
+            _trainingProcess = new System.Diagnostics.Process
+            {
+                StartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = accelerate,
+                    Arguments = args.ToString(),
+                    WorkingDirectory = s.KohyaPath,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = System.Text.Encoding.UTF8,
+                    StandardErrorEncoding = System.Text.Encoding.UTF8,
+                },
+                EnableRaisingEvents = true,
+            };
+
+            _trainingProcess.OutputDataReceived += (_, ev) =>
+            {
+                if (ev.Data != null) Dispatcher.Invoke(() => AppendLoraLog(ev.Data));
+            };
+            _trainingProcess.ErrorDataReceived += (_, ev) =>
+            {
+                if (ev.Data != null) Dispatcher.Invoke(() => AppendLoraLog("[W] " + ev.Data));
+            };
+            _trainingProcess.Exited += (_, __) => Dispatcher.Invoke(() =>
+            {
+                int code = _trainingProcess?.ExitCode ?? -1;
+                AppendLoraLog("──────────────────────────────");
+                AppendLoraLog(code == 0
+                    ? $"[DONE] Output: {s.OutputDir}"
+                    : $"[ERROR] Exit code {code}");
+                SetLoraTrainingState(false);
+                _trainingProcess = null;
+            });
+
+            try
+            {
+                _trainingProcess.Start();
+                _trainingProcess.BeginOutputReadLine();
+                _trainingProcess.BeginErrorReadLine();
+                SetLoraTrainingState(true);
+            }
+            catch (Exception ex)
+            {
+                AppendLoraLog($"[ERROR] {ex.Message}");
+                _trainingProcess = null;
+            }
+            
+        }
+
+        private void BtnStop_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_trainingProcess != null && !_trainingProcess.HasExited)
+                {
+                    // 子プロセスも含めて強制終了
+                    var job = new System.Diagnostics.Process
+                    {
+                        StartInfo = new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = "taskkill",
+                            Arguments = $"/F /T /PID {_trainingProcess.Id}",
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        }
+                    };
+                    job.Start();
+                    job.WaitForExit(3000);
+                    AppendLoraLog("[STOPPED] Stopped by user.");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppendLoraLog($"[ERROR] {ex.Message}");
+            }
+        }
+
+        private void SetLoraTrainingState(bool running)
+        {
+            BtnStartTraining.IsEnabled = !running;
+            BtnStop.IsEnabled = running;
+            TxtTrainStatus.Text = running ? "Training..." : "";
+        }
+
+        private void AppendLoraLog(string line)
+        {
+            TxtLog.AppendText(line + "\n");
+            LogScrollViewer.ScrollToEnd();
+        }
+
+        private void BtnClearLog_Click(object sender, RoutedEventArgs e)
+            => TxtLog.Clear();
+
+        // ── Helpers ─────────────────────────────────────────────────────
+        private static int ParseLoraInt(string s, int def)
+            => int.TryParse(s, out int v) ? v : def;
+
+        private static double ParseLoraDouble(string s, double def)
+            => double.TryParse(s,
+               System.Globalization.NumberStyles.Any,
+               System.Globalization.CultureInfo.InvariantCulture,
+               out double v) ? v : def;
+
+        private static void SetLoraComboByContent(ComboBox combo, string value)
+        {
+            foreach (ComboBoxItem item in combo.Items)
+            {
+                if (item.Content?.ToString() == value)
+                { combo.SelectedItem = item; return; }
+            }
+            if (combo.Items.Count > 0) combo.SelectedIndex = 0;
+        }
+
+
+        #endregion LoRA作成
 
         private void SetStatus(string message) => TxtStatus.Text = message;
     }

@@ -16,7 +16,8 @@
         <SolidColorBrush x:Key="AccentRed"   Color="#F38BA8"/>
         <SolidColorBrush x:Key="TextMain"    Color="#CDD6F4"/>
         <SolidColorBrush x:Key="TextSub"     Color="#6C7086"/>
-
+        <SolidColorBrush x:Key="AccentYellow" Color="#F9E2AF"/>
+        
         <Style x:Key="FlatButton" TargetType="Button">
             <Setter Property="Foreground"      Value="{StaticResource TextMain}"/>
             <Setter Property="Background"      Value="{StaticResource BgPanel}"/>
@@ -395,252 +396,671 @@
                           HorizontalAlignment="Stretch"/>
 
             <!-- Right pane -->
-            <Grid Grid.Column="2" Background="{StaticResource BgBase}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <!-- Row0: Tag summary -->
-                <Border Grid.Row="0" Background="{StaticResource BgSurface}"
-                        BorderBrush="{StaticResource BgBase}" BorderThickness="0,0,0,1">
-                    <Expander x:Name="TagSummaryExpander" IsExpanded="True"
-                              Background="Transparent" BorderThickness="0"
-                              Foreground="{StaticResource TextMain}">
-                        <Expander.Header>
-                            <DockPanel Width="800">
-                                <TextBlock x:Name="LblTagSummary"
-                                           DockPanel.Dock="Left"
-                                           Text="&#12479;&#12464;&#38598;&#35336;" FontSize="11"
-                                           Foreground="{StaticResource TextSub}"
-                                           VerticalAlignment="Center" Margin="4,0,0,0"/>
-                                <TextBlock x:Name="TxtSummaryInfo"
-                                           DockPanel.Dock="Left"
-                                           FontSize="11" Foreground="{StaticResource TextSub}"
-                                           VerticalAlignment="Center" Margin="8,0,0,0"/>
-                            </DockPanel>
-                        </Expander.Header>
-                        <Grid Margin="8,0,8,8">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <DockPanel Grid.Row="0" Margin="0,4,0,4">
-                                <Button x:Name="BtnDeleteSelectedSummaryTag"
-                                        DockPanel.Dock="Right"
-                                        Content="&#36984;&#25246;&#12479;&#12464;&#12434;&#20840;&#21066;&#38500;"
-                                        Style="{StaticResource FlatButton}"
-                                        Foreground="{StaticResource AccentRed}"
-                                        IsEnabled="False"
-                                        Click="BtnDeleteSelectedSummaryTag_Click"/>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock x:Name="LblSortOrder"
-                                               Text="並び順:"
-                                               Foreground="{StaticResource TextSub}"
-                                               VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"/>
-                                    <ToggleButton x:Name="SortByCount"
-                                                  Content="&#20214;&#25968;&#38918;" IsChecked="True"
-                                                  Style="{StaticResource CategoryToggle}"
-                                                  Checked="SortToggle_Changed" Unchecked="SortToggle_Changed"/>
-                                    <ToggleButton x:Name="SortByName"
-                                                  Content="&#21517;&#21069;&#38918;"
-                                                  Style="{StaticResource CategoryToggle}"
-                                                  Checked="SortToggle_Changed" Unchecked="SortToggle_Changed"/>
-                                </StackPanel>
-                            </DockPanel>
-                            <ScrollViewer Grid.Row="1" MaxHeight="120"
-                                          VerticalScrollBarVisibility="Auto"
-                                          HorizontalScrollBarVisibility="Disabled">
-                                <WrapPanel x:Name="TagSummaryPanel" Orientation="Horizontal"/>
-                            </ScrollViewer>
-                        </Grid>
-                    </Expander>
-                </Border>
-
-                <!-- Row1: Filter -->
-                <Border Grid.Row="1" Background="{StaticResource BgSurface}" Padding="10,7">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="LblFilter"
-                                   Text="&#34920;&#31034;&#12501;&#12451;&#12523;&#12479;:"
-                                   Foreground="{StaticResource TextSub}"
-                                   VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"/>
-                        <ToggleButton x:Name="FilterAll"        Content="&#12377;&#12409;&#12390;" IsChecked="True"
-                                      Style="{StaticResource CategoryToggle}" Tag="All"/>
-                        <ToggleButton x:Name="FilterFace"       Content="&#39151;"
-                                      Style="{StaticResource CategoryToggle}" Tag="Face"/>
-                        <ToggleButton x:Name="FilterBody"       Content="&#20307;"
-                                      Style="{StaticResource CategoryToggle}" Tag="Body"/>
-                        <ToggleButton x:Name="FilterOutfit"     Content="&#26381;&#35013;"
-                                      Style="{StaticResource CategoryToggle}" Tag="Outfit"/>
-                        <ToggleButton x:Name="FilterPose"       Content="&#12509;&#12540;&#12474;"
-                                      Style="{StaticResource CategoryToggle}" Tag="Pose"/>
-                        <ToggleButton x:Name="FilterBg"         Content="&#32972;&#26666;"
-                                      Style="{StaticResource CategoryToggle}" Tag="Background"/>
-                        <ToggleButton x:Name="FilterStyle"      Content="&#12473;&#12479;&#12452;&#12523;"
-                                      Style="{StaticResource CategoryToggle}" Tag="Style"/>
-                        <ToggleButton x:Name="FilterExpression" Content="&#34920;&#29616;"
-                                      Style="{StaticResource CategoryToggle}" Tag="Expression"/>
-                        <ToggleButton x:Name="FilterCharacter"  Content="&#12461;&#12515;&#12521;"
-                                      Style="{StaticResource CategoryToggle}" Tag="Character"/>
-                        <ToggleButton x:Name="FilterCopyright"  Content="&#20316;&#21697;&#21517;"
-                                      Style="{StaticResource CategoryToggle}" Tag="Copyright"/>
-                        <ToggleButton x:Name="FilterArtist"     Content="&#20316;&#32773;"
-                                      Style="{StaticResource CategoryToggle}" Tag="Artist"/>
-                        <ToggleButton x:Name="FilterOther"      Content="&#12381;&#12398;&#20182;"
-                                      Style="{StaticResource CategoryToggle}" Tag="Other"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- Row2: Bulk operations -->
-                <Border Grid.Row="2" Background="{StaticResource BgBase}"
-                        BorderBrush="{StaticResource BgSurface}" BorderThickness="0,1,0,1"
-                        Padding="10,6">
-                    <StackPanel Orientation="Vertical">
-                        <DockPanel Margin="0,0,0,5">
-                            <Button x:Name="BtnBulkDeleteCategory" DockPanel.Dock="Right"
-                                    Content="&#36984;&#25246;&#20013;&#12459;&#12486;&#12468;&#12522;&#12434;&#21066;&#38500;"
-                                    Style="{StaticResource FlatButton}"
-                                    Click="BtnBulkDeleteCategory_Click"
-                                    Foreground="{StaticResource AccentRed}"
-                                    IsEnabled="False"/>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock x:Name="LblBulkInsert"
-                                           Text="&#19968;&#25324;&#25335;&#20837;&#65288;&#20840;&#30011;&#20687;&#65289;:"
-                                           Foreground="{StaticResource TextSub}"
-                                           VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
-                                <TextBox x:Name="TxtBulkTag" Width="180"
-                                         Background="{StaticResource BgPanel}"
-                                         Foreground="{StaticResource TextMain}"
-                                         BorderThickness="0" Padding="8,5" FontSize="12"
-                                         CaretBrush="{StaticResource AccentBlue}"
-                                         KeyDown="TxtBulkTag_KeyDown"/>
-                                <Button x:Name="BtnBulkInsert"
-                                        Content="&#25335;&#20837;"
-                                        Style="{StaticResource FlatButton}"
-                                        Click="BtnBulkInsert_Click"
-                                        Foreground="{StaticResource AccentGreen}"
-                                        Margin="6,0,0,0"/>
-                            </StackPanel>
-                        </DockPanel>
-                        <DockPanel Margin="0,0,0,5">
-                            <Button x:Name="BtnBulkDeleteTag" DockPanel.Dock="Right"
-                                    Content="&#12371;&#12398;&#12479;&#12464;&#12434;&#20840;&#21066;&#38500;"
-                                    Style="{StaticResource FlatButton}"
-                                    Click="BtnBulkDeleteTag_Click"
-                                    Foreground="{StaticResource AccentRed}"
-                                    IsEnabled="False"/>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock x:Name="LblUnwantedTag"
-                                           Text="&#19981;&#35201;&#12479;&#12464;&#21066;&#38500;&#65288;&#20840;&#30011;&#20687;&#65289;:"
-                                           Foreground="{StaticResource TextSub}"
-                                           VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
-                                <TextBox x:Name="TxtDeleteTag" Width="160"
-                                         Background="{StaticResource BgPanel}"
-                                         Foreground="{StaticResource TextMain}"
-                                         BorderThickness="0" Padding="8,5" FontSize="12"
-                                         CaretBrush="{StaticResource AccentBlue}"
-                                         TextChanged="TxtDeleteTag_TextChanged"
-                                         KeyDown="TxtDeleteTag_KeyDown"/>
-                                <Button x:Name="BtnAddUnwantedTag"
-                                        Content="&#30331;&#37682;"
-                                        Style="{StaticResource FlatButton}"
-                                        Click="BtnAddUnwantedTag_Click"
-                                        Foreground="{StaticResource AccentBlue}"
-                                        Margin="6,0,0,0"/>
-                            </StackPanel>
-                        </DockPanel>
-                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                                      VerticalScrollBarVisibility="Auto" MaxHeight="58">
-                            <WrapPanel x:Name="UnwantedTagsPanel" Orientation="Horizontal"/>
-                        </ScrollViewer>
-                    </StackPanel>
-                </Border>
-
-                <!-- Row3: List -->
-                <ListView x:Name="AllItemsListView" Grid.Row="3"
-                          Background="Transparent" BorderThickness="0"
-                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                          VirtualizingStackPanel.IsVirtualizing="True"
-                          VirtualizingStackPanel.VirtualizationMode="Recycling"
-                          ItemContainerStyle="{StaticResource AllListItem}">
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <Border BorderBrush="{StaticResource BgSurface}"
-                                    BorderThickness="0,0,0,1" Padding="6,6">
-                                <DockPanel>
-                                    <Border DockPanel.Dock="Left"
-                                            Width="64" Height="64"
-                                            CornerRadius="4" ClipToBounds="True"
-                                            Margin="0,0,10,0">
-                                        <Image Source="{Binding Item.Thumbnail}" Stretch="UniformToFill"/>
+            <TabControl Grid.Column="2"
+            Background="{StaticResource BgBase}"
+            BorderThickness="0">
+                <TabControl.Resources>
+                    <Style TargetType="TabItem">
+                        <Setter Property="Foreground"      Value="{StaticResource TextSub}"/>
+                        <Setter Property="Background"      Value="{StaticResource BgSurface}"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="Padding"         Value="14,6"/>
+                        <Setter Property="FontSize"        Value="11"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="TabItem">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter ContentSource="Header"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
                                     </Border>
-                                    <StackPanel DockPanel.Dock="Left"
-                                                Width="130" VerticalAlignment="Top"
-                                                Margin="0,0,10,0">
-                                        <TextBlock Text="{Binding Item.FileName}"
-                                                   Foreground="{StaticResource TextMain}"
-                                                   FontSize="11" TextWrapping="Wrap"/>
-                                        <TextBlock Text="{Binding Item.TagCount, StringFormat={}{0} tags}"
-                                                   Foreground="{StaticResource AccentBlue}"
-                                                   FontSize="10" Margin="0,3,0,0"/>
-                                    </StackPanel>
-                                    <ItemsControl ItemsSource="{Binding FilteredTags}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <WrapPanel Orientation="Horizontal"/>
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Style="{StaticResource TagChipSmall}"
-                                                        BorderThickness="2,0,0,0"
-                                                        BorderBrush="{Binding CategoryColor}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Text="{Binding DisplayName}"
-                                                                   Foreground="{StaticResource TextMain}"
-                                                                   FontSize="11"/>
-                                                        <TextBlock Text=" [x]"
-                                                                   Foreground="{StaticResource AccentRed}"
-                                                                   FontSize="10" Cursor="Hand"
-                                                                   Tag="{Binding}"
-                                                                   MouseLeftButtonDown="ListViewTagDelete_Click"/>
-                                                    </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </DockPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgBase}"/>
+                                            <Setter Property="Foreground" Value="{StaticResource AccentBlue}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Opacity" Value="0.8"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </TabControl.Resources>
 
-                <!-- Row4: Add tag -->
-                <Border Grid.Row="4" Background="{StaticResource BgSurface}" Padding="12,8">
-                    <DockPanel>
-                        <TextBlock x:Name="LblAddTag"
-                                   DockPanel.Dock="Left"
-                                   Text="&#36984;&#25246;&#30011;&#20687;&#12395;&#12479;&#12464;&#12434;&#36861;&#21152;:"
-                                   Foreground="{StaticResource TextSub}"
-                                   VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
-                        <Button x:Name="BtnAddTag" DockPanel.Dock="Right"
-                                Content="&#36861;&#21152;"
+                <!-- ══ Tags Tab ══ -->
+                <TabItem x:Name="TabTags" Header="Tags">
+                    <Grid Background="{StaticResource BgBase}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Row0: Tag summary -->
+                        <Border Grid.Row="0" Background="{StaticResource BgSurface}"
+                    BorderBrush="{StaticResource BgBase}" BorderThickness="0,0,0,1">
+                            <Expander x:Name="TagSummaryExpander" IsExpanded="True"
+                          Background="Transparent" BorderThickness="0"
+                          Foreground="{StaticResource TextMain}">
+                                <Expander.Header>
+                                    <DockPanel Width="800">
+                                        <TextBlock x:Name="LblTagSummary"
+                                       DockPanel.Dock="Left"
+                                       Text="タグ集計" FontSize="11"
+                                       Foreground="{StaticResource TextSub}"
+                                       VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                        <TextBlock x:Name="TxtSummaryInfo"
+                                       DockPanel.Dock="Left"
+                                       FontSize="11" Foreground="{StaticResource TextSub}"
+                                       VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                    </DockPanel>
+                                </Expander.Header>
+                                <Grid Margin="8,0,8,8">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <DockPanel Grid.Row="0" Margin="0,4,0,4">
+                                        <Button x:Name="BtnDeleteSelectedSummaryTag"
+                                    DockPanel.Dock="Right"
+                                    Content="選択タグを全削除"
+                                    Style="{StaticResource FlatButton}"
+                                    Foreground="{StaticResource AccentRed}"
+                                    IsEnabled="False"
+                                    Click="BtnDeleteSelectedSummaryTag_Click"/>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock x:Name="LblSortOrder" Text="並び順:"
+                                           Foreground="{StaticResource TextSub}"
+                                           VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"/>
+                                            <ToggleButton x:Name="SortByCount" Content="件数順" IsChecked="True"
+                                              Style="{StaticResource CategoryToggle}"
+                                              Checked="SortToggle_Changed" Unchecked="SortToggle_Changed"/>
+                                            <ToggleButton x:Name="SortByName" Content="名前順"
+                                              Style="{StaticResource CategoryToggle}"
+                                              Checked="SortToggle_Changed" Unchecked="SortToggle_Changed"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <ScrollViewer Grid.Row="1" MaxHeight="120"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                                        <WrapPanel x:Name="TagSummaryPanel" Orientation="Horizontal"/>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Expander>
+                        </Border>
+
+                        <!-- Row1: Filter -->
+                        <Border Grid.Row="1" Background="{StaticResource BgSurface}" Padding="10,7">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="LblFilter" Text="表示フィルタ:"
+                               Foreground="{StaticResource TextSub}"
+                               VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"/>
+                                <ToggleButton x:Name="FilterAll"        Content="すべて" IsChecked="True"
+                                  Style="{StaticResource CategoryToggle}" Tag="All"/>
+                                <ToggleButton x:Name="FilterFace"       Content="顔"
+                                  Style="{StaticResource CategoryToggle}" Tag="Face"/>
+                                <ToggleButton x:Name="FilterBody"       Content="体"
+                                  Style="{StaticResource CategoryToggle}" Tag="Body"/>
+                                <ToggleButton x:Name="FilterOutfit"     Content="服装"
+                                  Style="{StaticResource CategoryToggle}" Tag="Outfit"/>
+                                <ToggleButton x:Name="FilterPose"       Content="ポーズ"
+                                  Style="{StaticResource CategoryToggle}" Tag="Pose"/>
+                                <ToggleButton x:Name="FilterBg"         Content="背景"
+                                  Style="{StaticResource CategoryToggle}" Tag="Background"/>
+                                <ToggleButton x:Name="FilterStyle"      Content="スタイル"
+                                  Style="{StaticResource CategoryToggle}" Tag="Style"/>
+                                <ToggleButton x:Name="FilterExpression" Content="表現"
+                                  Style="{StaticResource CategoryToggle}" Tag="Expression"/>
+                                <ToggleButton x:Name="FilterCharacter"  Content="キャラ"
+                                  Style="{StaticResource CategoryToggle}" Tag="Character"/>
+                                <ToggleButton x:Name="FilterCopyright"  Content="作品名"
+                                  Style="{StaticResource CategoryToggle}" Tag="Copyright"/>
+                                <ToggleButton x:Name="FilterArtist"     Content="作者"
+                                  Style="{StaticResource CategoryToggle}" Tag="Artist"/>
+                                <ToggleButton x:Name="FilterOther"      Content="その他"
+                                  Style="{StaticResource CategoryToggle}" Tag="Other"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Row2: Bulk operations -->
+                        <Border Grid.Row="2" Background="{StaticResource BgBase}"
+                    BorderBrush="{StaticResource BgSurface}" BorderThickness="0,1,0,1"
+                    Padding="10,6">
+                            <StackPanel Orientation="Vertical">
+                                <DockPanel Margin="0,0,0,5">
+                                    <Button x:Name="BtnBulkDeleteCategory" DockPanel.Dock="Right"
+                                Content="選択中カテゴリを削除"
                                 Style="{StaticResource FlatButton}"
-                                Click="BtnAddTag_Click"
-                                Background="{StaticResource AccentBlue}"
-                                Foreground="#1E1E2E" Margin="8,0,0,0"/>
-                        <TextBox x:Name="TxtNewTag"
-                                 Background="{StaticResource BgPanel}"
+                                Click="BtnBulkDeleteCategory_Click"
+                                Foreground="{StaticResource AccentRed}"
+                                IsEnabled="False"/>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock x:Name="LblBulkInsert" Text="一括挿入（全画像）:"
+                                       Foreground="{StaticResource TextSub}"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                                        <TextBox x:Name="TxtBulkTag" Width="180"
+                                     Background="{StaticResource BgPanel}"
+                                     Foreground="{StaticResource TextMain}"
+                                     BorderThickness="0" Padding="8,5" FontSize="12"
+                                     CaretBrush="{StaticResource AccentBlue}"
+                                     KeyDown="TxtBulkTag_KeyDown"/>
+                                        <Button x:Name="BtnBulkInsert" Content="挿入"
+                                    Style="{StaticResource FlatButton}"
+                                    Click="BtnBulkInsert_Click"
+                                    Foreground="{StaticResource AccentGreen}"
+                                    Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,5">
+                                    <Button x:Name="BtnBulkDeleteTag" DockPanel.Dock="Right"
+                                Content="このタグを全削除"
+                                Style="{StaticResource FlatButton}"
+                                Click="BtnBulkDeleteTag_Click"
+                                Foreground="{StaticResource AccentRed}"
+                                IsEnabled="False"/>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock x:Name="LblUnwantedTag" Text="不要タグ削除（全画像）:"
+                                       Foreground="{StaticResource TextSub}"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                                        <TextBox x:Name="TxtDeleteTag" Width="160"
+                                     Background="{StaticResource BgPanel}"
+                                     Foreground="{StaticResource TextMain}"
+                                     BorderThickness="0" Padding="8,5" FontSize="12"
+                                     CaretBrush="{StaticResource AccentBlue}"
+                                     TextChanged="TxtDeleteTag_TextChanged"
+                                     KeyDown="TxtDeleteTag_KeyDown"/>
+                                        <Button x:Name="BtnAddUnwantedTag" Content="登録"
+                                    Style="{StaticResource FlatButton}"
+                                    Click="BtnAddUnwantedTag_Click"
+                                    Foreground="{StaticResource AccentBlue}"
+                                    Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto" MaxHeight="58">
+                                    <WrapPanel x:Name="UnwantedTagsPanel" Orientation="Horizontal"/>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Row3: List -->
+                        <ListView x:Name="AllItemsListView" Grid.Row="3"
+                      Background="Transparent" BorderThickness="0"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                      VirtualizingStackPanel.IsVirtualizing="True"
+                      VirtualizingStackPanel.VirtualizationMode="Recycling"
+                      ItemContainerStyle="{StaticResource AllListItem}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource BgSurface}"
+                                BorderThickness="0,0,0,1" Padding="6,6">
+                                        <DockPanel>
+                                            <Border DockPanel.Dock="Left"
+                                        Width="64" Height="64"
+                                        CornerRadius="4" ClipToBounds="True"
+                                        Margin="0,0,10,0">
+                                                <Image Source="{Binding Item.Thumbnail}" Stretch="UniformToFill"/>
+                                            </Border>
+                                            <StackPanel DockPanel.Dock="Left"
+                                            Width="130" VerticalAlignment="Top"
+                                            Margin="0,0,10,0">
+                                                <TextBlock Text="{Binding Item.FileName}"
+                                               Foreground="{StaticResource TextMain}"
+                                               FontSize="11" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding Item.TagCount, StringFormat={}{0} tags}"
+                                               Foreground="{StaticResource AccentBlue}"
+                                               FontSize="10" Margin="0,3,0,0"/>
+                                            </StackPanel>
+                                            <ItemsControl ItemsSource="{Binding FilteredTags}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Style="{StaticResource TagChipSmall}"
+                                                    BorderThickness="2,0,0,0"
+                                                    BorderBrush="{Binding CategoryColor}">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding DisplayName}"
+                                                               Foreground="{StaticResource TextMain}"
+                                                               FontSize="11"/>
+                                                                <TextBlock Text=" [x]"
+                                                               Foreground="{StaticResource AccentRed}"
+                                                               FontSize="10" Cursor="Hand"
+                                                               Tag="{Binding}"
+                                                               MouseLeftButtonDown="ListViewTagDelete_Click"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </DockPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+
+                        <!-- Row4: Add tag -->
+                        <Border Grid.Row="4" Background="{StaticResource BgSurface}" Padding="12,8">
+                            <DockPanel>
+                                <TextBlock x:Name="LblAddTag" DockPanel.Dock="Left"
+                               Text="選択画像にタグを追加:"
+                               Foreground="{StaticResource TextSub}"
+                               VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                                <Button x:Name="BtnAddTag" DockPanel.Dock="Right" Content="追加"
+                            Style="{StaticResource FlatButton}"
+                            Click="BtnAddTag_Click"
+                            Background="{StaticResource AccentBlue}"
+                            Foreground="#1E1E2E" Margin="8,0,0,0"/>
+                                <TextBox x:Name="TxtNewTag"
+                             Background="{StaticResource BgPanel}"
+                             Foreground="{StaticResource TextMain}"
+                             BorderThickness="0" Padding="8,6" FontSize="13"
+                             KeyDown="TxtNewTag_KeyDown"
+                             CaretBrush="{StaticResource AccentBlue}"/>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </TabItem>
+
+                <!-- ══ Train LoRA Tab ══ -->
+                <TabItem x:Name="TabTrainLora" Header="Train LoRA" Height="27" VerticalAlignment="Bottom">
+                    <Grid Background="{StaticResource BgBase}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <!-- Preset bar -->
+                            <RowDefinition Height="320"/>
+                            <!-- Params -->
+                            <RowDefinition Height="*" MinHeight="100"/>
+                            <!-- Log -->
+                            <RowDefinition Height="Auto"/>
+                            <!-- Buttons -->
+                        </Grid.RowDefinitions>
+
+                        <!-- Preset bar -->
+                        <Border Grid.Row="0" Background="{StaticResource BgSurface}" Padding="10,6">
+                            <DockPanel>
+                                <TextBlock Text="Preset:" Foreground="{StaticResource TextSub}"
+                               VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                                <Button Content="Anime SDXL" Style="{StaticResource FlatButton}"
+                            Click="BtnPresetAnime_Click" Margin="0,0,6,0"/>
+                                <Button Content="Photo SDXL" Style="{StaticResource FlatButton}"
+                            Click="BtnPresetPhoto_Click"/>
+                                <TextBlock x:Name="TxtPresetName"
+                               Foreground="{StaticResource AccentYellow}"
+                               VerticalAlignment="Center" Margin="10,0,0,0" FontSize="11"/>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Params tabs -->
+                        <TabControl Grid.Row="1" Background="{StaticResource BgBase}" BorderThickness="0">
+                            <TabControl.Resources>
+                                <Style TargetType="TabItem">
+                                    <Setter Property="Foreground"      Value="{StaticResource TextSub}"/>
+                                    <Setter Property="Background"      Value="{StaticResource BgSurface}"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Padding"         Value="10,5"/>
+                                    <Setter Property="FontSize"        Value="11"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="TabItem">
+                                                <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                            Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter ContentSource="Header"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgBase}"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentBlue}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </TabControl.Resources>
+
+                            <!-- Paths -->
+                            <TabItem Header="Paths">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="12,8">
+                                        <TextBlock Text="kohya_ss" Foreground="{StaticResource AccentBlue}"
+                                            FontSize="11" FontWeight="SemiBold" Margin="0,4,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="kohya_ss folder:" Foreground="{StaticResource TextSub}"
+                                           FontSize="11" VerticalAlignment="Center" Width="150"/>
+                                            <Button Content="Browse" Style="{StaticResource FlatButton}"
+                                        DockPanel.Dock="Right" Padding="8,3" Margin="4,0,0,0"
+                                        Click="BtnBrowseKohya_Click"/>
+                                            <TextBox x:Name="TxtKohyaPath"
+                                         Background="{StaticResource BgPanel}"
+                                         Foreground="{StaticResource TextMain}"
+                                         BorderThickness="0" Padding="6,4"
+                                         CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <TextBlock Text="Model" Foreground="{StaticResource AccentBlue}"
+                                       FontSize="11" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="pretrained_model:" Foreground="{StaticResource TextSub}"
+                                           FontSize="11" VerticalAlignment="Center" Width="150"/>
+                                            <Button Content="Browse" Style="{StaticResource FlatButton}"
+                                        DockPanel.Dock="Right" Padding="8,3" Margin="4,0,0,0"
+                                        Click="BtnBrowseModel_Click"/>
+                                            <TextBox x:Name="TxtBaseModel"
+                                         Background="{StaticResource BgPanel}"
+                                         Foreground="{StaticResource TextMain}"
+                                         BorderThickness="0" Padding="6,4"
+                                         CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <TextBlock Text="Output" Foreground="{StaticResource AccentBlue}"
+                                       FontSize="11" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="output_dir:" Foreground="{StaticResource TextSub}"
+                                           FontSize="11" VerticalAlignment="Center" Width="150"/>
+                                            <Button Content="Browse" Style="{StaticResource FlatButton}"
+                                        DockPanel.Dock="Right" Padding="8,3" Margin="4,0,0,0"
+                                        Click="BtnBrowseOutput_Click"/>
+                                            <TextBox x:Name="TxtOutputDir"
+                                         Background="{StaticResource BgPanel}"
+                                         Foreground="{StaticResource TextMain}"
+                                         BorderThickness="0" Padding="6,4"
+                                         CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="output_name:" Foreground="{StaticResource TextSub}"
+                                           FontSize="11" VerticalAlignment="Center" Width="150"/>
+                                            <TextBox x:Name="TxtOutputName"
+                                         Background="{StaticResource BgPanel}"
+                                         Foreground="{StaticResource TextMain}"
+                                         BorderThickness="0" Padding="6,4"
+                                         CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <TextBlock Text="Training Data" Foreground="{StaticResource AccentBlue}"
+                                       FontSize="11" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="repeats:" Foreground="{StaticResource TextSub}"
+                                           FontSize="11" VerticalAlignment="Center" Width="150"/>
+                                            <TextBox x:Name="TxtRepeats" Width="60" HorizontalAlignment="Left"
+                                                 Background="{StaticResource BgPanel}"
+                                                 Foreground="{StaticResource TextMain}"
+                                                 BorderThickness="0" Padding="6,4"
+                                                 CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+
+                                        <TextBlock Foreground="{StaticResource TextSub}" FontSize="11"
+                                       TextWrapping="Wrap" Margin="0,0,0,2"
+                                       Text="Uses the folder currently open in the main window."/>
+                                        <TextBlock x:Name="TxtTrainDataDir"
+                                       Foreground="{StaticResource AccentGreen}"
+                                       FontSize="11" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <!-- Network / Training -->
+                            <TabItem Header="Network">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="12,8">
+                                        <TextBlock Text="Network" Foreground="{StaticResource AccentBlue}"
+                                       FontSize="11" FontWeight="SemiBold" Margin="0,4,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="network_dim:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <TextBox x:Name="TxtNetworkDim" Width="80" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="network_alpha:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <TextBox x:Name="TxtNetworkAlpha" Width="80" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <TextBlock Text="Training" Foreground="{StaticResource AccentBlue}"
+                                       FontSize="11" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="max_train_epochs:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <TextBox x:Name="TxtMaxEpochs" Width="80" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="train_batch_size:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <TextBox x:Name="TxtBatchSize" Width="80" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="save_every_n_epochs:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <TextBox x:Name="TxtSaveEvery" Width="80" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="resolution:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <ComboBox x:Name="CmbResolution" Width="100" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Style="{StaticResource DarkComboBox}">
+                                                <ComboBoxItem Content="512"/>
+                                                <ComboBoxItem Content="768"/>
+                                                <ComboBoxItem Content="1024"/>
+                                            </ComboBox>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="enable_bucket:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <CheckBox x:Name="ChkEnableBucket" IsChecked="True" Foreground="{StaticResource TextMain}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="bucket_no_upscale:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <CheckBox x:Name="ChkBucketNoUpscale" IsChecked="True" Foreground="{StaticResource TextMain}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <!-- LR -->
+                            <TabItem Header="LR">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="12,8">
+                                        <TextBlock Text="Learning Rate" Foreground="{StaticResource AccentBlue}" FontSize="11" FontWeight="SemiBold" Margin="0,4,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="learning_rate:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="180"/>
+                                            <TextBox x:Name="TxtLr" Width="120" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="unet_lr:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="180"/>
+                                            <TextBox x:Name="TxtUnetLr" Width="120" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="text_encoder_lr:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="180"/>
+                                            <TextBox x:Name="TxtTeLr" Width="120" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <TextBlock Text="Scheduler" Foreground="{StaticResource AccentBlue}" FontSize="11" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="lr_scheduler:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="180"/>
+                                            <ComboBox x:Name="CmbLrScheduler" Width="200" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Style="{StaticResource DarkComboBox}">
+                                                <ComboBoxItem Content="linear"/>
+                                                <ComboBoxItem Content="cosine"/>
+                                                <ComboBoxItem Content="cosine_with_restarts"/>
+                                                <ComboBoxItem Content="polynomial"/>
+                                                <ComboBoxItem Content="constant"/>
+                                                <ComboBoxItem Content="constant_with_warmup"/>
+                                                <ComboBoxItem Content="adafactor"/>
+                                            </ComboBox>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="lr_warmup_steps:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="180"/>
+                                            <TextBox x:Name="TxtWarmupSteps" Width="80" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="lr_scheduler_num_cycles:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="180"/>
+                                            <TextBox x:Name="TxtNumCycles" Width="80" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <!-- Optimizer -->
+                            <TabItem Header="Optimizer">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="12,8">
+                                        <TextBlock Text="Optimizer" Foreground="{StaticResource AccentBlue}" FontSize="11" FontWeight="SemiBold" Margin="0,4,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="optimizer_type:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <ComboBox x:Name="CmbOptimizer" Width="180" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Style="{StaticResource DarkComboBox}">
+                                                <ComboBoxItem Content="AdamW"/>
+                                                <ComboBoxItem Content="AdamW8bit"/>
+                                                <ComboBoxItem Content="PagedAdamW8bit"/>
+                                                <ComboBoxItem Content="Lion"/>
+                                                <ComboBoxItem Content="Lion8bit"/>
+                                                <ComboBoxItem Content="Prodigy"/>
+                                                <ComboBoxItem Content="DAdaptAdam"/>
+                                                <ComboBoxItem Content="Adafactor"/>
+                                            </ComboBox>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="mixed_precision:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <ComboBox x:Name="CmbMixedPrecision" Width="100" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Style="{StaticResource DarkComboBox}">
+                                                <ComboBoxItem Content="no"/>
+                                                <ComboBoxItem Content="fp16"/>
+                                                <ComboBoxItem Content="bf16"/>
+                                            </ComboBox>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="save_precision:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <ComboBox x:Name="CmbSavePrecision" Width="100" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Style="{StaticResource DarkComboBox}">
+                                                <ComboBoxItem Content="float"/>
+                                                <ComboBoxItem Content="fp16"/>
+                                                <ComboBoxItem Content="bf16"/>
+                                            </ComboBox>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="gradient_checkpointing:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <CheckBox x:Name="ChkGradCheck" Foreground="{StaticResource TextMain}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="num_cpu_threads:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <TextBox x:Name="TxtNumCpuThreads" Width="60" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+
+                                        <TextBlock Text="Attention / Cache" Foreground="{StaticResource AccentBlue}"
+                                            FontSize="11" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="attention:" Foreground="{StaticResource TextSub}"
+                                                        FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <ComboBox x:Name="CmbAttentionMode" Width="120"
+                                                  Style="{StaticResource DarkComboBox}">
+                                                <ComboBoxItem Content="sdpa"/>
+                                                <ComboBoxItem Content="xformers"/>
+                                                <ComboBoxItem Content="none"/>
+                                            </ComboBox>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="cache_latents:" Foreground="{StaticResource TextSub}"
+                                                  FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <CheckBox x:Name="ChkCacheLatents"
+                                                Foreground="{StaticResource TextMain}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="cache_latents_to_disk:" Foreground="{StaticResource TextSub}"
+                                                FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <CheckBox x:Name="ChkCacheLatentsToDisk" IsChecked="True"
+                                                  Foreground="{StaticResource TextMain}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <!-- Advanced -->
+                            <TabItem Header="Advanced">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="12,8">
+                                        <TextBlock Text="Noise / SNR" Foreground="{StaticResource AccentBlue}" FontSize="11" FontWeight="SemiBold" Margin="0,4,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="noise_offset:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <TextBox x:Name="TxtNoiseOffset" Width="80" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="min_snr_gamma:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <TextBox x:Name="TxtMinSnr" Width="80" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="scale_weight_norms:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <TextBox x:Name="TxtScaleWeightNorms" Width="80" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <TextBlock Text="Caption" Foreground="{StaticResource AccentBlue}" FontSize="11" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="shuffle_caption:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <CheckBox x:Name="ChkShuffleCaption" IsChecked="True" Foreground="{StaticResource TextMain}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="keep_tokens:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <TextBox x:Name="TxtKeepTokens" Width="60" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <TextBlock Text="Model" Foreground="{StaticResource AccentBlue}" FontSize="11" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="clip_skip:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <TextBox x:Name="TxtClipSkip" Width="60" Background="{StaticResource BgPanel}" Foreground="{StaticResource TextMain}" BorderThickness="0" Padding="6,4" CaretBrush="{StaticResource AccentBlue}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="no_half_vae:" Foreground="{StaticResource TextSub}" FontSize="11" VerticalAlignment="Center" Width="160"/>
+                                            <CheckBox x:Name="ChkNoHalfVae" IsChecked="True" Foreground="{StaticResource TextMain}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+                        </TabControl>
+
+                        <!-- Log -->
+                        <Border Grid.Row="2" Background="{StaticResource BgSurface}"
+                    BorderBrush="{StaticResource BgPanel}" BorderThickness="0,1,0,0" Margin="0,10,0,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="24"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Border Grid.Row="0" Background="{StaticResource BgBase}" Padding="8,0">
+                                    <DockPanel>
+                                        <TextBlock Text="Log" Foreground="{StaticResource TextSub}"
+                                       FontSize="11" VerticalAlignment="Center"/>
+                                        <Button DockPanel.Dock="Right" Content="Clear"
+                                            Style="{StaticResource FlatButton}"
+                                        Padding="6,2" FontSize="10"
+                                    Width="50"
+                                    Click="BtnClearLog_Click"/>
+                                    </DockPanel>
+                                </Border>
+                                <ScrollViewer Grid.Row="1" x:Name="LogScrollViewer"
+                                  VerticalScrollBarVisibility="Auto">
+                                    <TextBox x:Name="TxtLog"
+                                 Background="Transparent"
                                  Foreground="{StaticResource TextMain}"
-                                 BorderThickness="0" Padding="8,6" FontSize="13"
-                                 KeyDown="TxtNewTag_KeyDown"
-                                 CaretBrush="{StaticResource AccentBlue}"/>
-                    </DockPanel>
-                </Border>
-            </Grid>
+                                 BorderThickness="0" Padding="8,4"
+                                 FontFamily="Consolas" FontSize="11"
+                                 IsReadOnly="True" TextWrapping="NoWrap"
+                                 HorizontalScrollBarVisibility="Auto"            />
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+
+                        <!-- Start/Stop -->
+                        <Border Grid.Row="3" Background="{StaticResource BgSurface}" Padding="10,6">
+                            <DockPanel>
+                                <Button x:Name="BtnStop" DockPanel.Dock="Right"
+                            Content="Stop" Style="{StaticResource FlatButton}"
+                            Foreground="{StaticResource AccentRed}"
+                            IsEnabled="False" Click="BtnStop_Click" Margin="6,0,0,0"/>
+                                <Button x:Name="BtnStartTraining" DockPanel.Dock="Right"
+                            Content="Start Training" Style="{StaticResource FlatButton}"
+                            Background="{StaticResource AccentGreen}"
+                            Foreground="#1E1E2E"
+                            Click="BtnStartTraining_Click"/>
+                                <TextBlock x:Name="TxtTrainStatus"
+                               Foreground="{StaticResource TextSub}"
+                               VerticalAlignment="Center" FontSize="11"/>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+
         </Grid>
 
         <!-- Status bar -->
