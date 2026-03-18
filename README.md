@@ -162,7 +162,7 @@ Built-in LoRA training via kohya_ss. Switch to the **Train LoRA** tab in the rig
 
 - kohya_ss installed locally (tested with standard install and StabilityMatrix)
 - SDXL base model (.safetensors)
-- VRAM 12 GB recommended (RTX 4070 / 4080 / 5070 etc.)
+- VRAM 16 GB recommended
 
 ### Setup (Paths tab)
 
@@ -180,10 +180,11 @@ Training images are taken from the folder currently open in the main window. No 
 
 | Preset | Target | VRAM |
 |---|---|---|
-| Anime SDXL | Illustration / anime style | ~10 GB |
-| Photo SDXL | Real photos | ~10 GB |
+| Anime SDXL | Illustration / anime style | ~16 GB |
+| Photo SDXL | Real photos | ~16 GB |
 
-Both presets use `gradient_checkpointing=true` to keep VRAM under 12 GB.
+Both presets are set to `gradient_checkpointing=true`, and it seems that learning is possible with 16GB of VRAM or less.
+(My environment has 12GB of VRAM, so I have only tested the minimum settings.)
 
 ### Parameter Tabs
 
