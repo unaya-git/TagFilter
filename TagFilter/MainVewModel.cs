@@ -156,7 +156,8 @@ namespace TagFilter
         {
             int count = 0;
             var targetList = targets.ToList();
-            var errorFiles = new System.Collections.Concurrent.ConcurrentBag<string>();
+            //var errorFiles = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var errorFiles = new System.Collections.Concurrent.ConcurrentBag<(string File, string Error)>();
             var semaphore = new SemaphoreSlim(Math.Max(1, parallelCount));
 
             var tasks = targetList.Select(async item =>
@@ -189,7 +190,8 @@ namespace TagFilter
                 {
                     System.Diagnostics.Debug.WriteLine(
                         $"[INFER ERROR] {item.FileName}: {ex.GetType().Name}: {ex.Message}");
-                    errorFiles.Add(item.FileName);
+                    //errorFiles.Add(item.FileName);
+                    errorFiles.Add((item.FileName, $"{ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"));
                     progress?.Report(Interlocked.Increment(ref count));
 
                 }
@@ -200,6 +202,7 @@ namespace TagFilter
 
             if (errorFiles.Count > 0)
             {
+                /*
                 var msg = errorFiles.Count == 1
                     ? $"以下の画像でタグ付けに失敗しました:\n{errorFiles.First()}"
                     : $"{errorFiles.Count} 枚の画像でタグ付けに失敗しました:\n"
@@ -209,6 +212,19 @@ namespace TagFilter
                 Application.Current.Dispatcher.Invoke(() =>
                     MessageBox.Show(msg, "タグ付けエラー",
                         MessageBoxButton.OK, MessageBoxImage.Warning));
+                */
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine(Strings.MsgThumbnailFailed);
+                foreach (var (file, error) in errorFiles.Take(3))
+                {
+                    sb.AppendLine($"── {file} ──");
+                    sb.AppendLine(error);
+                    sb.AppendLine();
+                }
+                if (errorFiles.Count > 3)
+                    sb.AppendLine($"...他 {errorFiles.Count - 3} 件");
+                MessageBox.Show(sb.ToString(), Strings.MsgError,
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
