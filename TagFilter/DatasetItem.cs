@@ -105,8 +105,15 @@ namespace TagFilter{
             }
         }
 
-        public void SaveTagsToFile()
+        //public void SaveTagsToFile()
+        public void SaveTagsToFile(bool force = false)
         {
+            // 手動保存以外 ＆ 設定がOFF ならファイルを作らず終了する
+            if (!force && AppSettings.Current != null && !AppSettings.Current.SaveTxt)
+            {
+                return;
+            }
+
             var tagLine = string.Join(", ", Tags.Select(t =>
             {
                 // AppSettings の UseUnderscores に従って変換

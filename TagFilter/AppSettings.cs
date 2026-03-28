@@ -15,6 +15,7 @@ namespace TagFilter
         public int LoraModeIndex { get; set; } = 0;
         public double Threshold { get; set; } = 0.35;
         public bool UseUnderscores { get; set; } = true;  // デフォルト: _ あり（安全側）
+        public bool SaveTxt { get; set; } = true;
 
         [XmlArray("UnwantedTags")]
         [XmlArrayItem("Tag")]

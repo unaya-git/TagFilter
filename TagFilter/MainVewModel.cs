@@ -144,6 +144,26 @@ namespace TagFilter
                 }
             });
         }
+        public async Task LoadFilesAsync(IEnumerable<string> filePaths)
+        {
+            var extensions = new HashSet<string> { ".jpg", ".jpeg", ".png", ".webp" };
+
+            // 渡されたファイルパスのリストから、対応する拡張子の画像だけを抽出
+            var imageFiles = filePaths
+                .Where(f => extensions.Contains(Path.GetExtension(f).ToLower()) && File.Exists(f))
+                .ToList();
+
+            Items.Clear(); // 既存のリストをクリアして新しく読み込み直す
+            await Task.Run(() =>
+            {
+                foreach (var path in imageFiles)
+                {
+                    var item = new DatasetItem { ImagePath = path };
+                    item.LoadTagsFromFile();
+                    Application.Current.Dispatcher.Invoke(() => Items.Add(item));
+                }
+            });
+        }
 
         public async Task BatchTagAsync(
             IEnumerable<DatasetItem> targets,

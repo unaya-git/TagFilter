@@ -90,6 +90,9 @@ namespace TagFilter
             BtnUnderscore.Content = _settings.UseUnderscores
                 ? Strings.BtnUnderscoreOn : Strings.BtnUnderscoreOff;
 
+            // txt保存設定
+            BtnSaveTxt.IsChecked = _settings.SaveTxt;
+            BtnSaveTxt.Content = _settings.SaveTxt ? "保存 ON" : "保存 OFF";
             ApplyLocale();
 
             CmbDevice.SelectedIndex = Math.Min(_settings.DeviceIndex, 2);
@@ -123,6 +126,7 @@ namespace TagFilter
             _settings.LoraModeIndex = CmbLoraMode.SelectedIndex;
             _settings.Threshold = SliderThreshold.Value;
             _settings.UseUnderscores = BtnUnderscore.IsChecked == true;
+            _settings.SaveTxt = BtnSaveTxt.IsChecked == true;
             ReadLoraSettingsFromUI().Save();
             _settings.Save();
         }
@@ -135,6 +139,7 @@ namespace TagFilter
             e.Handled = true;
         }
 
+        /*
         private async void Window_Drop(object sender, DragEventArgs e)
         {
             if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
@@ -142,6 +147,78 @@ namespace TagFilter
             var folder = paths.FirstOrDefault(p => Directory.Exists(p));
             if (folder == null) return;
             await LoadFolderByPathAsync(folder);
+        }
+        */
+        /*
+        private async void Window_Drop(object sender, DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+            var paths = (string[])e.Data.GetData(DataFormats.FileDrop);
+
+            // フォルダを優先、なければファイルのあるフォルダを使用
+            var folder = paths.FirstOrDefault(p => Directory.Exists(p));
+            if (folder == null)
+            {
+                // ファイルが渡された場合はその親フォルダを使用
+                var file = paths.FirstOrDefault(p => File.Exists(p) &&
+                    new[] { ".jpg", ".jpeg", ".png", ".webp" }
+                    .Contains(Path.GetExtension(p).ToLower()));
+                if (file != null)
+                    folder = Path.GetDirectoryName(file);
+            }
+
+            if (folder == null) return;
+            await LoadFolderByPathAsync(folder);
+        }
+        */
+        private async void Window_Drop(object sender, DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+            var paths = (string[])e.Data.GetData(DataFormats.FileDrop);
+
+            // ドロップされた中にフォルダが含まれているか確認
+            var folder = paths.FirstOrDefault(p => Directory.Exists(p));
+
+            if (folder != null)
+            {
+                // フォルダが含まれていれば、従来通りフォルダ丸ごと読み込み
+                await LoadFolderByPathAsync(folder);
+            }
+            else
+            {
+                // フォルダがなく、ファイルのみがドロップされた場合
+                var validExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+                var imageFiles = paths.Where(p => File.Exists(p) &&
+                    validExtensions.Contains(Path.GetExtension(p).ToLower()))
+                    .ToArray();
+
+                // 対象の画像ファイルが存在すればファイル専用の読み込みを行う
+                if (imageFiles.Any())
+                {
+                    await LoadFilesByPathsAsync(imageFiles);
+                }
+            }
+        }
+        private async Task LoadFilesByPathsAsync(string[] filePaths)
+        {
+            SetStatus(Strings.StatusLoading);
+            BtnOpenFolder.IsEnabled = false;
+            try
+            {
+                // MainViewModel側で、渡されたファイル群だけを読み込むメソッドを呼び出す
+                await _vm.LoadFilesAsync(filePaths);
+
+                await LoadThumbnailsAsync();
+                TxtImageCount.Text = $"{_vm.Items.Count} 件";
+                RebuildDisplayItems();
+                SetStatus(Strings.StatusLoaded(_vm.Items.Count));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"ファイルの読み込みに失敗しました\n{ex.Message}",
+                    Strings.MsgError, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally { BtnOpenFolder.IsEnabled = true; }
         }
 
         // ── 言語切替 ────────────────────────────────────────────────────
@@ -779,10 +856,21 @@ namespace TagFilter
         }
 
         // ── 全保存 ──────────────────────────────────────────────────────
+        /*
         private void BtnSaveAll_Click(object sender, RoutedEventArgs e)
         {
             int count = 0;
             foreach (var item in _vm.Items) { item.SaveTagsToFile(); count++; }
+            SetStatus(Strings.StatusSavedAll(count));
+        }*/
+        private void BtnSaveAll_Click(object sender, RoutedEventArgs e)
+        {
+            int count = 0;
+            foreach (var item in _vm.Items)
+            {
+                item.SaveTagsToFile(true); 
+                count++;
+            }
             SetStatus(Strings.StatusSavedAll(count));
         }
 
@@ -1546,6 +1634,32 @@ namespace TagFilter
             if (combo.Items.Count > 0) combo.SelectedIndex = 0;
         }
 
+        // タグをクリップボードにコピー
+        private void BtnCopyTags_Click(object sender, RoutedEventArgs e)
+        {
+            var item = (sender as FrameworkElement)?.Tag as DatasetItem;
+            if (item == null || item.Tags.Count == 0) return;
+
+            bool useUnder = AppSettings.Current.UseUnderscores;
+            var tagLine = string.Join(", ", item.Tags.Select(t =>
+                useUnder ? t.Name : t.Name.Replace("_", " ")));
+
+            Clipboard.SetText(tagLine);
+            SetStatus($"Copied: {item.FileName} ({item.Tags.Count} tags)");
+        }
+
+        // txt保存トグルボタンの処理
+        private void BtnSaveTxt_Click(object sender, RoutedEventArgs e)
+        {
+            bool save = BtnSaveTxt.IsChecked == true;
+            BtnSaveTxt.Content = save ? "保存 ON" : "保存 OFF";
+            _settings.SaveTxt = save;
+
+            if (AppSettings.Current != null)
+            {
+                AppSettings.Current.SaveTxt = save;
+            }
+        }
 
         #endregion LoRA作成
 

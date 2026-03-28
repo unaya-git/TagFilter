@@ -274,6 +274,18 @@
               Margin="8,0,0,0"
               ToolTip="タグのアンダースコアを空白に変換 / Convert _ to space"
               Click="BtnUnderscore_Click"/>
+
+                        <TextBlock Text="Save txt:"
+                                    Foreground="{StaticResource TextSub}"
+                                    VerticalAlignment="Center" Margin="8,0,4,0" FontSize="11"/>
+                        <ToggleButton x:Name="BtnSaveTxt"
+              Content="保存 ON"
+              Width="56" Height="22"
+              Margin="8,0,0,0"
+              ToolTip="txtファイルを自動で作成・保存する / Auto save txt files"
+              Click="BtnSaveTxt_Click"
+              IsChecked="True"/>
+
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="BtnOpenFolder" Content="&#12501;&#12457;&#12523;&#12480;&#12434;&#38283;&#12367;"
@@ -601,9 +613,9 @@
                                 BorderThickness="0,0,0,1" Padding="6,6">
                                         <DockPanel>
                                             <Border DockPanel.Dock="Left"
-                                        Width="64" Height="64"
-                                        CornerRadius="4" ClipToBounds="True"
-                                        Margin="0,0,10,0">
+                                               Width="64" Height="64"
+                                                CornerRadius="4" ClipToBounds="True"
+                                                Margin="0,0,10,0">
                                                 <Image Source="{Binding Item.Thumbnail}" Stretch="UniformToFill"/>
                                             </Border>
                                             <StackPanel DockPanel.Dock="Left"
@@ -616,6 +628,13 @@
                                                Foreground="{StaticResource AccentBlue}"
                                                FontSize="10" Margin="0,3,0,0"/>
                                             </StackPanel>
+                                            <Button Content="Copy Tags"
+                                                Style="{StaticResource FlatButton}"
+                                                Padding="6,2" FontSize="10"
+                                                Tag="{Binding Item}"
+                                                Click="BtnCopyTags_Click"
+                                                Margin="0,4,0,0"/>
+                                            
                                             <ItemsControl ItemsSource="{Binding FilteredTags}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
