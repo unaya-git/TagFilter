@@ -628,13 +628,13 @@
                                                Foreground="{StaticResource AccentBlue}"
                                                FontSize="10" Margin="0,3,0,0"/>
                                             </StackPanel>
-                                            <Button Content="Copy Tags"
+                                            <Button Content="Copy view Tags"
                                                 Style="{StaticResource FlatButton}"
                                                 Padding="6,2" FontSize="10"
-                                                Tag="{Binding Item}"
+                                                Tag="{Binding}"
                                                 Click="BtnCopyTags_Click"
                                                 Margin="0,4,0,0"/>
-                                            
+
                                             <ItemsControl ItemsSource="{Binding FilteredTags}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>

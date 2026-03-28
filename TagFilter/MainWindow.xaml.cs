@@ -1634,18 +1634,21 @@ namespace TagFilter
             if (combo.Items.Count > 0) combo.SelectedIndex = 0;
         }
 
-        // タグをクリップボードにコピー
+        // 表示タグをクリップボードにコピー
         private void BtnCopyTags_Click(object sender, RoutedEventArgs e)
         {
-            var item = (sender as FrameworkElement)?.Tag as DatasetItem;
-            if (item == null || item.Tags.Count == 0) return;
+            // Bindingされた DatasetItemView を受け取る
+            var view = (sender as FrameworkElement)?.Tag as DatasetItemView;
+            if (view == null || view.FilteredTags == null || view.FilteredTags.Count == 0) return;
 
             bool useUnder = AppSettings.Current.UseUnderscores;
-            var tagLine = string.Join(", ", item.Tags.Select(t =>
+
+            // Item.Tags ではなく、フィルタリング済みの view.FilteredTags を使う
+            var tagLine = string.Join(", ", view.FilteredTags.Select(t =>
                 useUnder ? t.Name : t.Name.Replace("_", " ")));
 
             Clipboard.SetText(tagLine);
-            SetStatus($"Copied: {item.FileName} ({item.Tags.Count} tags)");
+            SetStatus($"Copied: {view.Item.FileName} ({view.FilteredTags.Count} view tags)");
         }
 
         // txt保存トグルボタンの処理
