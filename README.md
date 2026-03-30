@@ -203,10 +203,10 @@ Training images are taken from the folder currently open in the main window. No 
 
 | Preset | Target | VRAM |
 |---|---|---|
-| Anime SDXL | Illustration / anime style | ~10 GB |
-| Photo SDXL | Real photos | ~10 GB |
+| Anime SDXL | Illustration / anime style | ~16 GB |
+| Photo SDXL | Real photos | ~16 GB |
 
-Both presets use `gradient_checkpointing=true` to keep VRAM under 12 GB.
+Both presets have `gradient_checkpointing=true` set, so training should be possible with 16GB of VRAM or less. (My PC only has 12GB of VRAM, so I could only test the bare minimum.)
 
 ### Parameter Tabs
 
