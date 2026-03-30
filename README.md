@@ -10,6 +10,21 @@ A tool for auto-tagging images with WD14 Tagger and efficiently creating/editing
 
 ---
 
+## Changelog
+
+### v1.2.3
+- Overhauled tag classification categories
+
+### v1.2.2
+- Added **Copy Tags to Clipboard** button per image
+- Added **Save .txt ON/OFF** toggle
+- Added support for drag & drop of individual image files (in addition to folders)
+
+### v1.2.1
+- Improved error messages: tagging failures now show exception type and stack trace
+
+---
+
 ## Requirements
 
 - Windows 10 / 11
@@ -29,7 +44,7 @@ Analyzes images with WD14 Tagger (ONNX) and auto-generates tags. Results are sav
 
 ### Drag & Drop
 
-Drag and drop an image folder directly onto the window to load it.
+Drag and drop an image **folder** or individual **image files** directly onto the window to load them. When a single image file is dropped, the entire folder containing that file is loaded.
 
 ![Drag and Drop](docs/screen_dragdrop.png)
 
@@ -104,9 +119,17 @@ Filter the display by category and optionally bulk-delete all tags in that categ
 - **Delete All Tags**: Remove a specified tag from all images
 - **Unwanted Tag Register**: Save frequently-deleted tags as chips for one-click deletion
 
+### Copy Tags to Clipboard
+
+Each image row has a **Copy Tags** button. Clicking it copies all tags for that image to the clipboard as a comma-separated string, respecting the current underscore setting.
+
+### Save .txt Toggle
+
+The **Save .txt** toggle in the toolbar controls whether tag data is written to `.txt` files on save. When OFF, tags are held in memory only and no files are written.
+
 ### Auto Save Settings
 
-Model, device, threshold, language, underscore setting, and unwanted tag list are auto-saved to `settings.xml` on exit.
+Model, device, threshold, language, underscore setting, save .txt setting, and unwanted tag list are auto-saved to `settings.xml` on exit.
 
 ---
 
@@ -162,7 +185,7 @@ Built-in LoRA training via kohya_ss. Switch to the **Train LoRA** tab in the rig
 
 - kohya_ss installed locally (tested with standard install and StabilityMatrix)
 - SDXL base model (.safetensors)
-- VRAM 16 GB recommended
+- VRAM 12 GB recommended (RTX 4070 / 4080 / 5070 etc.)
 
 ### Setup (Paths tab)
 
@@ -180,11 +203,10 @@ Training images are taken from the folder currently open in the main window. No 
 
 | Preset | Target | VRAM |
 |---|---|---|
-| Anime SDXL | Illustration / anime style | ~16 GB |
-| Photo SDXL | Real photos | ~16 GB |
+| Anime SDXL | Illustration / anime style | ~10 GB |
+| Photo SDXL | Real photos | ~10 GB |
 
-Both presets are set to `gradient_checkpointing=true`, and it seems that learning is possible with 16GB of VRAM or less.
-(My environment has 12GB of VRAM, so I have only tested the minimum settings.)
+Both presets use `gradient_checkpointing=true` to keep VRAM under 12 GB.
 
 ### Parameter Tabs
 
